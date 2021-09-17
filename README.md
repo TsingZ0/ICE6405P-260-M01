@@ -6,15 +6,15 @@ Course materials
 
 | No. | Course Title | Slide |
 | ---------- | ------------ | ----- |
-|            |              |       |
-|            |              |       |
+| 1 | Cloud computing | [cloud computing](./slides/cloud computing.pdf) |
 
-## Assignments
+## Labs
 
-| No. | Assignments | Due |
-| --- | ----------- | --- |
-|     |             |     |
-|     |             |     |
+| No. | Labs |
+| --- | ----------- |
+| 1 | [Virtualization](./labs/Virtualization Lab.docx) |
+| 2 | [Serverless](./labs/Serverless Labs.docx) |
+| 3 | [Federated learning](./labs/Federated Learning Lab.docx) |
 
 ## Paper list
 
