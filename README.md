@@ -108,6 +108,7 @@ Course materials
 * Wu, Zhaoxian, et al. "Federated variance-reduced stochastic gradient descent with robustness to byzantine attacks." IEEE Transactions on Signal Processing 68 (2020): 4583-4596.
 * Bagdasaryan, Eugene, et al. "How to backdoor federated learning." International Conference on Artificial Intelligence and Statistics. PMLR, 2020.
 * Sun, Ziteng, et al. "Can you really backdoor federated learning?." arXiv preprint arXiv:1911.07963 (2019).
+* Hanxi, Guo et al. "Siren: Byzantine-robust Federated Learning via Proactive Alarming."
 
 
 ## Contacts
