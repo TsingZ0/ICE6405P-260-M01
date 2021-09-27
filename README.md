@@ -7,6 +7,7 @@ Course materials
 | No. | Course Title | Slide |
 | ---------- | ------------ | ----- |
 | 1 | Cloud computing | [cloud-computing.pdf](./slides/cloud-computing.pdf) |
+| 2 | Virtualization techniques | [virtualization-techniques.pdf](./slides/virtualization-techniques.pdf) |
 
 ## Labs
 
