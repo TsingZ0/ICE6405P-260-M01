@@ -1,7 +1,9 @@
 #!/bin/bash
+# ------- BEGIN CONFIGURATION ------- #
 SRC_PATH=~/Src/ovs
 OVS_VERSION=2.16.0
 PROFILE=~/.bashrc
+# -------- END CONFIGURATION -------- #
 
 CURR_PATH=$(pwd)
 N_PROC=$(expr $(cat /proc/cpuinfo |grep "processor"|wc -l) \* 2)
@@ -38,7 +40,12 @@ sudo make install
 set -e
 
 # Add openvswitch scripts to path
+if [ $PROFILE ]; then
 echo "export PATH=\$PATH:/usr/local/share/openvswitch/scripts" >> $PROFILE
-
 echo "Installation completed, you should run 'source $PROFILE' to use ovs commands"
+else
+echo "Installation completed."
+if
+
+
 cd $CURR_PATH
