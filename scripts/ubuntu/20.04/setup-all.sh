@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 bash setup-deps.sh
 bash setup-qemu.sh
 bash setup-dpdk.sh
