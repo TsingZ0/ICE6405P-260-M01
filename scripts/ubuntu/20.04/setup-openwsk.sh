@@ -1,9 +1,10 @@
 #!/bin/bash
+# ------- BEGIN CONFIGURATION ------- #
 SRC_PATH=~/Src/openwsk
 OPENWSK_VERSION=1.0.0
 OPENWSK_CLI_VERSION=1.2.0
-PROFILE=~/.bashrc
 ARCH=amd64
+# -------- END CONFIGURATION -------- #
 
 CURR_PATH=$(pwd)
 set -e

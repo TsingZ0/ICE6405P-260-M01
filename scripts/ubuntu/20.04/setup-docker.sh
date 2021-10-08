@@ -1,5 +1,7 @@
 #!/bin/bash
+# ------- BEGIN CONFIGURATION ------- #
 PKG_MANAGER=apt-get
+# -------- END CONFIGURATION -------- #
 
 sudo $PKG_MANAGER clean
 sudo $PKG_MANAGER autoclean
@@ -21,8 +23,8 @@ set -e
 fi
 
 # Add current user to docker group
-if [[ ! $(docker ps | grep CONTAINER) ]]; then 
-echo "Adding current user to docker group"
+# if [[ ! $(docker ps | grep CONTAINER) ]]; then 
+# echo "Adding current user to docker group"
 sudo usermod -aG docker $USER
 newgrp docker
 sudo systemctl restart docker

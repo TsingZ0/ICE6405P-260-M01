@@ -1,7 +1,9 @@
 #!/bin/bash
+# ------- BEGIN CONFIGURATION ------- #
 SRC_PATH=~/Src/dpdk
 DPDK_VERSION=20.11.1
 PROFILE=~/.bashrc
+# -------- END CONFIGURATION -------- #
 
 CURR_PATH=$(pwd)
 
@@ -24,8 +26,6 @@ tar xf dpdk-$DPDK_VERSION.tar.xz
 fi
 
 export DPDK_DIR=$(pwd)/dpdk-stable-$DPDK_VERSION
-echo "export DPDK_DIR=$DPDK_DIR" >> $PROFILE
-echo "export PATH=\$PATH:\$DPDK_DIR/usertools/" >> $PROFILE
 cd $DPDK_DIR
 export DPDK_BUILD=$DPDK_DIR/build
 
@@ -38,5 +38,12 @@ sudo ldconfig
 # Verify installation of dpdk
 pkg-config --modversion libdpdk
 
+if [ $PROFILE ]; then
+echo "export DPDK_DIR=$DPDK_DIR" >> $PROFILE
+echo "export PATH=\$PATH:\$DPDK_DIR/usertools/" >> $PROFILE
 echo "Installation completed, you should run 'source $PROFILE' for changes to take effect"
+else
+echo "Installation completed, you should manually add 'export DPDK_DIR=$DPDK_DIR' 'export PATH=\$PATH:\$DPDK_DIR/usertools/' to your profile"
+fi
+
 cd $CURR_PATH
