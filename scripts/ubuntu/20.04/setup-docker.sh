@@ -21,7 +21,7 @@ set -e
 fi
 
 # Add current user to docker group
-if [ ! $(docker ps | grep CONTAINER) ]; then 
+if [[ ! $(docker ps | grep CONTAINER) ]]; then 
 echo "Adding current user to docker group"
 sudo usermod -aG docker $USER
 newgrp docker
