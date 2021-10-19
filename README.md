@@ -8,6 +8,9 @@ Course materials
 | ---------- | ------------ | ----- |
 | 1 | Cloud computing | [cloud-computing.pdf](./slides/cloud-computing.pdf) |
 | 2 | Virtualization techniques | [virtualization-techniques.pdf](./slides/virtualization-techniques.pdf) |
+| 3 | GPU virtualization  | [GPU-virtualization.pdf](./slides/GPU-virtualization.pdf) |
+| 4 | Virtualization technology of network devices and heterogeneous devices | [virtualization-devices.pdf](./slides/virtualization-devices.pdf) |
+| 5 | Traditional cloud computing system | [traditional-cloud-computing-system.pdf](./slides/traditional-cloud-computing-system.pdf) |
 
 ## Labs
 
