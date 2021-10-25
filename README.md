@@ -11,6 +11,7 @@ Course materials
 | 3 | GPU virtualization  | [GPU-virtualization.pdf](./slides/GPU-virtualization.pdf) |
 | 4 | Virtualization technology of network devices and heterogeneous devices | [virtualization-devices.pdf](./slides/virtualization-devices.pdf) |
 | 5 | Traditional cloud computing system | [traditional-cloud-computing-system.pdf](./slides/traditional-cloud-computing-system.pdf) |
+| 5 | Big data platform | [big-data-platform.pdf](./slides/big-data-platform.pdf) |
 
 ## Labs
 
