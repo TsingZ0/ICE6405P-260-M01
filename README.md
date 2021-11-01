@@ -12,6 +12,9 @@ Course materials
 | 4 | Virtualization technology of network devices and heterogeneous devices | [virtualization-devices.pdf](./slides/virtualization-devices.pdf) |
 | 5 | Traditional cloud computing system | [traditional-cloud-computing-system.pdf](./slides/traditional-cloud-computing-system.pdf) |
 | 6 | Big data platform | [big-data-platform.pdf](./slides/big-data-platform.pdf) |
+| 7 | Serverless computing | [serverless-computing.pdf](./slides/serverless-computing.pdf) |
+| 8 | Federated learning | [federated-learning.pdf](./slides/federated-learning.pdf) |
+| 9 | Federated learning industrial | [federated-learning-industrial.pdf](./slides/federated-learning-industrial.pdf) |
 
 ## Labs
 
