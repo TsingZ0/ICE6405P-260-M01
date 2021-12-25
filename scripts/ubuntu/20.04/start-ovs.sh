@@ -6,13 +6,14 @@ set -e
 ETH_INTERFACE=eno1 # Name of ethernet interface
 MEM_HUGEPAGE=4096 # Hugepage size
 OVSDEV_PCIID=0000:06:00.0
-DPDK_DIR=/home/liyutong/Src/dpdk-stable-20.11.1/ # DPDK installation
+DPDK_DIR=/home/liyutong/Src/dpdk-stable-20.11.1 # DPDK installation
 OVS_SCRIPT_PATH=/usr/local/share/openvswitch/scripts # OVS script path
 DB_SOCK=/usr/local/var/run/openvswitch/db.sock # Place to create db sock
 OVSDB_PID=/usr/local/var/run/openvswitch/ovs-vswitchd.pid # Place to store OBSDB pid
 
 # Init service
-sudo service openvswitch-switch start
+# Dont need on Ubuntu 18.04
+# sudo service openvswitch-switch start 
 
 # Configure hugepage
 sudo sysctl -w vm.nr_hugepages=$MEM_HUGEPAGE
@@ -23,8 +24,8 @@ sudo mount -t hugetlbfs none /dev/hugepages
 # Set vifo permission
 dmesg | grep -e DMAR -e IOMMU
 modprobe vfio-pci
-sudo /usr/bin/chmod a+x /dev/vfio
-sudo /usr/bin/chmod 0666 /dev/vfio/*
+sudo /bin/chmod a+x /dev/vfio
+sudo /bin/chmod 0666 /dev/vfio/*
 
 # Configure DPDK
 $DPDK_DIR/usertools/dpdk-devbind.py --bind=vfio-pci $ETH_INTERFACE
