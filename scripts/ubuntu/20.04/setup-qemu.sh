@@ -25,7 +25,7 @@ tar xJf qemu-$QEMU_VERSION.tar.xz
 fi
 
 cd qemu-$QEMU_VERSION
-./configure --enable-vhost-user --enable-vhost-net --enable-kvm  --enable-libusb
+./configure --enable-vhost-user --enable-vhost-net --enable-kvm  --enable-libusb --enable-gtk
 make -j$N_PROC
 
 if [ $PROFILE ]; then
