@@ -9,7 +9,7 @@ Host Platform: Ubuntu 20.04 LTS (x86_64), i7-9700K, 32GB RAM, bare metal.
 KVM is a Linux kernel feature.
 
 ```bash
-lsmod | grep kvm
+$ lsmod | grep kvm
 kvm_intel             294912  0
 kvm                   819200  1 kvm_intel
 ```
@@ -17,7 +17,7 @@ kvm                   819200  1 kvm_intel
 ### Install Qemu dependencies
 
 ```bash
-sudo apt-get install ninja-build libmount-dev libpixman-1-dev libusb-1.0 libeproxy-dev
+$ sudo apt-get install ninja-build libmount-dev libpixman-1-dev libusb-1.0 libeproxy-dev
 ```
 
 ### Install Qemu from source
@@ -25,23 +25,23 @@ sudo apt-get install ninja-build libmount-dev libpixman-1-dev libusb-1.0 libepro
 First, install QEMU from source
 
 ```bash
-wget https://download.qemu.org/qemu-6.1.0.tar.xz
-tar xvJf qemu-6.1.0.tar.xz
-cd qemu-6.1.0
-./configure --enable-vhost-user --enable-vhost-net --enable-kvm  --enable-libusb --enable-opengl
-make -j8
+$ wget https://download.qemu.org/qemu-6.1.0.tar.xz
+$ tar xvJf qemu-6.1.0.tar.xz
+$ cd qemu-6.1.0
+$ ./configure --enable-vhost-user --enable-vhost-net --enable-kvm  --enable-libusb --enable-opengl
+$ make -j8
 ```
 
 Add qemu to PATH
 
 ```bash
-export PATH=$(pwd)/build:$PATH
+$ export PATH=$(pwd)/build:$PATH
 ```
 
 Then, verify the installation is successful
 
 ```bash
-qemu-system-x86_64
+$ qemu-system-x86_64
 ```
 
 A window will pop out indicating that a virtual machine has been created
@@ -53,7 +53,7 @@ The CentOS installation image can be downloaded from Internet.
 To run centos8, we need to create a image using `qemu-img` command.
 
 ```bash
-cd $WORKING_DIR
+$ cd $WORKING_DIR
 $ qemu-img create -f qcow2 centos_disk_0 10G 
 Formatting 'centos_disk_0.img', fmt=qcow2 cluster_size=65536 extended_l2=off compression_type=zlib size=10737418240 lazy_refcounts=off refcount_bits=16
 ```
@@ -74,7 +74,7 @@ centos_disk_0.img: QEMU QCOW2 Image (v3), 10737418240 bytes
 The `file` command tells the size image is 10G. However, the image does not really consume 10G of storage space in host systeme:
 
 ```bash
-$ l centos_disk_0.img 
+$ ls centos_disk_0.img 
 -rw-r--r--  1 liyutong  staff   192K  9 18 21:04 centos_disk_0.img
 ```
 
@@ -83,7 +83,7 @@ This is because `qcow2` virtual disks automatically expands when written.
 With the virtual disk image and the installation image, we can then launch our virtual machine:
 
 ```bash
-qemu-system-x86_64 -serial stdio \
+$ qemu-system-x86_64 -serial stdio \
    -smp 2,sockets=1,cores=2,threads=1 -m 4096 \
    -device virtio-gpu-pci \
    -display default,show-cursor=on \
@@ -118,7 +118,7 @@ We finish installation steps in the GUI:
 After installation, we remove the CD drive from virtual machine:
 
 ```bash
-qemu-system-x86_64 -serial stdio \
+$ qemu-system-x86_64 -serial stdio \
    -smp 2,sockets=1,cores=2,threads=1 -m 4096 \
    -device virtio-gpu-pci \
    -display default,show-cursor=on \
@@ -134,11 +134,11 @@ qemu-system-x86_64 -serial stdio \
 We have already mapped port 22 of VM to localhost:10122. To SSH to VM, simply execute
 
 ```bash
-ssh -p 10122 localhost
+$ ssh -p 10122 localhost
 ```
 
 ```bash
-mkdir Downloads && cd Downloads
+$ mkdir Downloads && cd Downloads
 $ wget www.sjtu.edu.cn
 --2021-09-26 01:32:15--  http://www.sjtu.edu.cn/
 Resolving www.sjtu.edu.cn (www.sjtu.edu.cn)... 202.120.2.119, 2001:da8:8000:6fc0:102:1200:2:48
@@ -161,16 +161,16 @@ Testing CPU performance
 ```bash
 $ time echo "scale=5000; 4*a(1)" | bc -l -q # On Ubuntu host
 ... 11.78s
-time echo "scale=5000; 4*a(1)" | bc -l -q # On CentOS VM
+$ time echo "scale=5000; 4*a(1)" | bc -l -q # On CentOS VM
 ... 1m3.173s
 ```
 
 The CPU performance of VM is significantly poorer than Host. This is because we disabled KVM in VM. To enable KVM, append `-enable-kvm` argument at the end of launch command:
 
 ```bash
-sudo usermod -a -G kvm $USER
+$ sudo usermod -a -G kvm $USER
 
-sudo -E $(which qemu-system-x86_64) -serial stdio \
+$ sudo -E $(which qemu-system-x86_64) -serial stdio \
    -smp 2,sockets=1,cores=2,threads=1 -m 4096 \
    -device virtio-gpu-pci \
    -display default,show-cursor=on \
@@ -183,7 +183,7 @@ sudo -E $(which qemu-system-x86_64) -serial stdio \
 ```
 
 ```bash
-time echo "scale=5000; 4*a(1)" | bc -l -q # On CentOS VM
+$ time echo "scale=5000; 4*a(1)" | bc -l -q # On CentOS VM
 ... 0m15.059s
 ```
 
@@ -193,20 +193,23 @@ The performance of KVM is acceptable
 
 ### Get DPDK
 
-Install `meson`
+Install `meson` and `clang`
+
+> In our case (Ubuntu 20.04, Intel Core i7 1165G7, gcc 9.3.0 cannot enable SSE4.2 support)
 
 ```bash
-sudo apt-get install meson
+$ sudo apt-get install meson clang
 ```
 
 Install dpdk
 
 ```bash
-wget https://fast.dpdk.org/rel/dpdk-20.11.1.tar.xz && tar xf dpdk-20.11.1.tar.xz
-export DPDK_DIR=$(pwd)/dpdk-stable-20.11.1
-cd $DPDK_DIR
-export DPDK_BUILD=$DPDK_DIR/build
-meson build
+$ wget https://fast.dpdk.org/rel/dpdk-20.11.1.tar.xz && tar xf dpdk-20.11.1.tar.xz
+$ export DPDK_DIR=$(pwd)/dpdk-stable-20.11.1
+$ cd $DPDK_DIR
+$ export DPDK_BUILD=$DPDK_DIR/build
+$ export CC=clang
+$ meson build
 ninja -C build
 sudo ninja -C build install
 sudo ldconfig
@@ -215,21 +218,32 @@ sudo ldconfig
 Check version
 
 ```bash
-pkg-config --modversion libdpdk
+$ pkg-config --modversion libdpdk
 ```
 
 ### OpenVSwitch configuration
 
 ```bash
-git clone https://github.com/openvswitch/ovs.git
-cd ovs
-git checkout v2.16.0
-./boot.sh
-./configure --with-dpdk=yes
-make
-make install
+$ git clone https://github.com/openvswitch/ovs.git
+$ cd ovs
+$ git checkout v2.16.0
+$ ./boot.sh
+$ ./configure --with-dpdk=yes
+$ make
+$ make install
 export PATH=$PATH:/usr/local/share/openvswitch/scripts
 ```
+
+> Some platfrom might need to enable iommu support
+>
+> ```ini
+> # In /etc/default/grub, add 
+> GRUB_CMDLINE_LINUX="iommu=pt intel_iommu=on"
+> ```
+>
+> ```console
+> $ update-grub2
+> ```
 
 Configure OpenVSwitch with this bash script
 
@@ -239,13 +253,21 @@ Configure OpenVSwitch with this bash script
 
 set -e 
 
-ETH_INTERFACE=eno1 # Name of ethernet interface
+ETH_INTERFACE=enp1s0 # Name of ethernet interface
 MEM_HUGEPAGE=4096 # Hugepage size
 OVSDEV_PCIID=0000:06:00.0
-DPDK_DIR=/home/liyutong/Src/dpdk-stable-20.11.1 # DPDK installation
+DPDK_DIR=/home/liyutong/Src/dpdk/dpdk-stable-20.11.1 # DPDK installation
 OVS_SCRIPT_PATH=/usr/local/share/openvswitch/scripts # OVS script path
 DB_SOCK=/usr/local/var/run/openvswitch/db.sock # Place to create db sock
 OVSDB_PID=/usr/local/var/run/openvswitch/ovs-vswitchd.pid # Place to store OBSDB pid
+
+OVS_RUN_DIR="/usr/local/var/run/openvswitch/"
+if [ ! -d $OVS_RUN_DIR ]; then
+echo "making dir $OVS_RUN_DIR" && sudo mkdir -p "$OVS_RUN_DIR"
+fi
+
+
+
 
 # Init service
 # Dont need on Ubuntu 18.04
@@ -264,12 +286,15 @@ sudo /bin/chmod a+x /dev/vfio
 sudo /bin/chmod 0666 /dev/vfio/*
 
 # Configure DPDK
-$DPDK_DIR/usertools/dpdk-devbind.py --bind=vfio-pci $ETH_INTERFACE
-$DPDK_DIR/usertools/dpdk-devbind.py --status
+set +e
+sudo $DPDK_DIR/usertools/dpdk-devbind.py --status
+sudo $DPDK_DIR/usertools/dpdk-devbind.py --bind=vfio-pci $ETH_INTERFACE
+sudo $DPDK_DIR/usertools/dpdk-devbind.py --status
+set -e
 
 # Create ovsdb
 if [ ! -f "/usr/local/etc/openvswitch/conf.db" ];then
-ovsdb-tool create /usr/local/etc/openvswitch/conf.db /usr/local/share/openvswitch/vswitch.ovsschema
+sudo ovsdb-tool create /usr/local/etc/openvswitch/conf.db /usr/local/share/openvswitch/vswitch.ovsschema
 fi
 
 # Start ovsdb
@@ -291,7 +316,7 @@ sudo ovs-vsctl --no-wait set Open_vSwitch . other_config:dpdk-init=true
 #0x06 = 0b110 will use core 2 and core 1
 sudo ovs-vsctl set Open_vSwitch . other_config:pmd-cpu-mask=0x6
 sudo ovs-vsctl set Open_vSwitch . other_config:dpdk-lcore-mask=0x1
-sudo ovs-vsctl set Open_vSwitch . other_config:dpdk-socket-mem=512
+# sudo ovs-vsctl set Open_vSwitch . other_config:dpdk-socket-mem=512
 
 # Start ovs
 set +e
@@ -305,7 +330,7 @@ sudo ovs-vswitchd --version
 ```
 
 ```bash
-sudo /bin/bash ./start-ovs.sh
+bash ./start-ovs.sh
 ```
 
 ### Creating OpenVSwitch port and bridge
@@ -314,7 +339,7 @@ sudo /bin/bash ./start-ovs.sh
 ovs-vsctl del-port vhost-user-0
 ovs-vsctl del-br br0
 
-ovs-vsctl add-br br0 -- set bridge ovsdpdkbr0 datapath_type=netdev
+ovs-vsctl add-br br0 -- set bridge br0 datapath_type=netdev
 # ovs-vsctl add-port br0 dpdk0 -- set Interface dpdk0 type=dpdk  "options:dpdk-devargs=$OVSDEV_PCIID" 
 ovs-vsctl add-port br0 vhost-user-0 -- set Interface vhost-user-0 type=dpdkvhostuserclient options:vhost-server-path="/tmp/sock0"
 ```
@@ -483,12 +508,9 @@ We can find 8 interrrupts of `virtio2-input` and `virtio2-output`.
 
 ## Migration
 
-Environment
-
-- Host1(192.168.1.207) is running Ubuntu 20.04.1 on bare metal.
-- Host2(192.168.1.131) is running Ubuntu 20.04.3 in Hyper-V hypervisor.
+We want to migrate VM1 to VM2, so VM2 listen for incoming "PUSH" operation.
   
-The virtual disk is stored at a NFS shared path `$SHARED_PATH/centos_disk_0.img`, which is accessible for two hosts.
+In real-world scenario, the virtual disk is stored at a NFS shared path `$SHARED_PATH/centos_disk_0.img`, which is accessible for two hosts.
 
 Enable monitor on VM1(source)
 
@@ -509,8 +531,7 @@ sudo -E $(which qemu-system-x86_64) \
    -chardev socket,id=char0,path=/tmp/sock0,server=on \
    -netdev tap,type=vhost-user,id=mynet-0,chardev=char0,vhostforce=on,queues=4 \
    -device virtio-net-pci,netdev=mynet-0,mq=on,vectors=10,id=net0,mac=00:00:00:00:00:01 \
-   -monitor stdio \
-   -incoming tcp:0:16666
+   -monitor stdio
 ```
 
 Create ovs port for VM2
@@ -547,6 +568,7 @@ echo 8192 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
 Start VM2:
 
 ```bash
+SHARED_PATH=.
 sudo -E $(which qemu-system-x86_64) \
    -smp 2,sockets=1,cores=2,threads=1 -m 4096 \
    -device virtio-gpu-pci \
@@ -554,7 +576,7 @@ sudo -E $(which qemu-system-x86_64) \
    -device qemu-xhci -device usb-kbd \
    -device usb-tablet -device intel-hda \
    -device hda-duplex \
-   -drive file=$SHARED_PATH/centos_disk_0.img,if=virtio,cache=writethrough \
+   -drive file=$SHARED_PATH/centos_disk_dummy.img,if=virtio,cache=writethrough \
    -nic user,model=virtio,hostfwd=tcp::10123-:22 \
    -enable-kvm \
    -object memory-backend-file,id=mem,size=4096M,mem-path=/dev/hugepages,share=on \
@@ -562,18 +584,19 @@ sudo -E $(which qemu-system-x86_64) \
    -chardev socket,id=char1,path=/tmp/sock1,server=on \
    -netdev tap,type=vhost-user,id=mynet-1,chardev=char1,vhostforce=on,queues=4 \
    -device virtio-net-pci,netdev=mynet-1,mq=on,vectors=10,id=net1,mac=00:00:00:00:00:02 \
-   -monitor stdio
+   -monitor stdio \
+   -incoming tcp:0:16666
 ```
 
-After a while, we should be able to connect to VM2 via `ssh -p 10123 localhost`.
+We use a dummy disk image, so VM2 will not boot.
 
-In VM2's monitor, run:
+In VM1's monitor, run:
 
 ```bash
 migrate tcp:$IP:6666
 ```
 
-After a while, we should be able to connect to VM2 via `ssh -p 10122 localhost`. The system is migrated
+After a while, we should be able to connect to VM2 via `ssh -p 10123 localhost`. The system is migrated
 
 In VM's monitor, run `info migrate` to fetch migration details
 
