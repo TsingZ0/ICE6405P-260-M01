@@ -87,6 +87,7 @@ if __name__ == '__main__':
     import sys
     if len(sys.argv) == 1:
         test('./model.pth')
+        exit()
 
     if sys.argv[1] == 'train':
         train()
