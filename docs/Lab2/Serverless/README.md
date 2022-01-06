@@ -15,41 +15,41 @@ In this step, we deploy a **standalone** openwhisk stack on target machine.
 We manually install docker using convenient script from [get-docker.com](get-docker.com)
 
 ```bash
- curl -fsSL https://get.docker.com -o get-docker.sh
- sudo sh get-docker.sh
+$ curl -fsSL https://get.docker.com -o get-docker.sh
+$ sudo sh get-docker.sh
  ```
 
- To accelerate download, we add our own registory to `/etc/docker/daemon.json`
+To accelerate download, we add our own registory to `/etc/docker/daemon.json`
 
 ```bash
- sudo tee /etc/docker/daemon.json <<-'EOF'
+$ sudo tee /etc/docker/daemon.json <<-'EOF'
 {
   "registry-mirrors": ["https://p3e80qty.mirror.aliyuncs.com"]
 }
 EOF
-sudo systemctl daemon-reload
-sudo systemctl restart docker
+$ sudo systemctl daemon-reload
+$ sudo systemctl restart docker
 ```
 
 ### Install JAVA
 
 ```bash
-sudo apt-get install openjdk-11-jdk
+$ sudo apt-get install openjdk-11-jdk
 ```
 
 ### Install NodeJS, NPM
 
 ```bash
-sudo apt-get install nodejs
-sudo apt-get install npm
+$ sudo apt-get install nodejs
+$ sudo apt-get install npm
 ```
 
 ## Get OpenWhisk source code and Configure
 
 ```bash
-git clone --recursive https://github.com/apache/openwhisk.git
-cd openwhisk
-./gradlew core:standalone:build
+$ git clone --recursive https://github.com/apache/openwhisk.git
+$ cd openwhisk
+$ ./gradlew core:standalone:build
 ```
 
 ## Deploy OpenWhisk
@@ -57,39 +57,39 @@ cd openwhisk
 Simply use gradle to build OpenWhisk
 
 ```bash
-./gradlew core:standalone:build
+$ ./gradlew core:standalone:build
 ```
 
 ### Trouble shooting: Cannot connect to docker daemon due to privillege
 
 ```bash
-sudo usermod -aG docker $USER 
-newgrp docker
+$ sudo usermod -aG docker $USER 
+$ newgrp docker
 ```
 
 If the `docker` group does not exist:
 
 ```bash
-sudo groupadd docker
+$ sudo groupadd docker
 ```
 
 Restart the docker service
 
 ```bash
-sudo systemctl restart docker
+$ sudo systemctl restart docker
 ```
 
 Verify normal user can use docker
 
 ```bash
-docker run hello-world
+$ docker run hello-world
 ```
 
 Stop the gradle daemon, then try again to deploy
 
 ```bash
-./gradlew --stop
-./gradlew core:standalone:build
+$ ./gradlew --stop
+$ ./gradlew core:standalone:build
 ```
 
 ### Get OpenWhisk CLI
@@ -97,9 +97,9 @@ Stop the gradle daemon, then try again to deploy
 To connect and manipulate OpenWhisk, `wsk` CLI is needed. We install `wsk` from [openwhisk-cli](https://github.com/apache/openwhisk-cli) repository:
 
 ```bash
-wget https://github.com/apache/openwhisk-cli/releases/download/1.2.0/OpenWhisk_CLI-1.2.0-linux-amd64.tgz
-tar -xzvf OpenWhisk_CLI-1.2.0-linux-amd64.tgz 
-mv wsk /usr/local/bin/
+$ wget https://github.com/apache/openwhisk-cli/releases/download/1.2.0/OpenWhisk_CLI-1.2.0-linux-amd64.tgz
+$ tar -xzvf OpenWhisk_CLI-1.2.0-linux-amd64.tgz 
+$ mv wsk /usr/local/bin/
 ```
 
 ### Launch OpenWhisk
@@ -107,15 +107,17 @@ mv wsk /usr/local/bin/
 After the build process has finished, launch openwhisk using `java -jar`:
 
 ```bash
-java -jar ./bin/openwhisk-standalone.jar
+$ java -jar ./bin/openwhisk-standalone.jar
 ```
+
+> This is a foreground task
 
 ![OpenWhisk](img/1.png)
 
 Credential of our OpenWhisk instance is printed to `stdout` (as highlighted in the picture above)
 
 ```bash
-wsk property set --apihost 'http://172.17.0.1:3233' --auth '23bc46b1-71f6-4ed5-8c54-816aa4f8c502:123zO3xZCLrMN6v2BKK1dXYFpXlPkccOFqm12CdAsMgRU4VrNZ9lyGVCGuMDGIwP'
+$ wsk property set --apihost 'http://172.17.0.1:3233' --auth '23bc46b1-71f6-4ed5-8c54-816aa4f8c502:123zO3xZCLrMN6v2BKK1dXYFpXlPkccOFqm12CdAsMgRU4VrNZ9lyGVCGuMDGIwP'
 ```
 
 Now we can manipulate OpenWhisk with `wsk` command.
@@ -125,8 +127,7 @@ Now we can manipulate OpenWhisk with `wsk` command.
 We create a `hello.js` file to test if our OpenWhisk installation is operational
 
 ```bash
-
-echo " function main(params) {var name = params.name || 'World'; return {payload:  'Hello, ' + name + '\!'};}" > hello.js
+$ echo " function main(params) {var name = params.name || 'World'; return {payload:  'Hello, ' + name + '\!'};}" > hello.js
 ```
 
 We then create an OpenWhisk Action that binds to this script:
@@ -150,7 +151,7 @@ $ wsk action invoke helloworld --result
 To store pictures of handwritten digits, we need some sort of storage services. The `MinIO` server is a decent choice.
 
 ```bash
-docker run \
+$ docker run \
     --name minio \
     --net=host \
     -d \
@@ -165,7 +166,7 @@ docker run \
 For example:
 
 ```bash
-docker run \
+$ docker run \
     --name minio \
     --net=host \
     -d \
@@ -276,45 +277,35 @@ It returns the name of bucket and the name of file as a dictionary, together wit
 
 ## Deploy ML Applications
 
-### Install conda
-
-Visit [this site](https://docs.conda.io/en/latest/miniconda.html) to download Miniconda distribution.
-
-We choose the MNIST hand-written digits recognition as the targeted ML Application. It is the 'Helloworld' task in the field of machine learning.
-
 ### Train the Model
 
 We follow [this paper](https://ieeexplore.ieee.org/document/726791?arnumber=726791) to build a multi-layer CNN model using Pytorch. The model is trained with MNIST dataset.
+
+### Convert the model to ONNX
+
+With the help of `torch.onnx.export`, we convert our trained model to ONNX format for deployement.
 
 ### Wrap the ML model as a WebApp
 
 With the help of [Flask](https://flask.net.cn), the ML model can be wrapped as a WebApp.
 
 ```python
-"""deploy-flask.py
-"""
-import torch
 from flask import Flask, jsonify, request, Response
-from typing import Callable, Dict, Union
+from typing import Dict, Union
 from io import BytesIO
 from PIL import Image
 import urllib.request
-from torchvision import transforms
-from model import LeNet5
 from gevent import pywsgi
 import os
+import onnx
+import onnxruntime as ort
+import numpy as np
 
 app = Flask(__name__)
 
-net: torch.nn.Module = None
+ort_session: ort.InferenceSession = None
 
-DEFAULT_TRANSFORM: Callable = transforms.Compose(
-    [transforms.Grayscale(),
-     transforms.Resize(28),
-     transforms.ToTensor()])
-
-PATH_TO_STATE_DICT = os.environ["PATH_TO_STATE_DICT"]
-
+PATH_TO_ONNX_MODEL = os.environ["PATH_TO_ONNX_MODEL"]
 
 def decode_picture_from_url(url: str) -> Union[None, torch.Tensor]:
     """Decode a picture from OSS service
@@ -340,8 +331,9 @@ def decode_picture_from_url(url: str) -> Union[None, torch.Tensor]:
 
     try:   
         img = Image.open(BytesIO(urllib.request.urlopen(url, timeout=10).read()))
-        img = DEFAULT_TRANSFORM(img)
-        return img.unsqueeze(0)
+        img = img.resize((28, 28), Image.ANTIALIAS).convert('L')
+        img_np = np.array(img)
+        return np.expand_dims(np.expand_dims(img_np, axis=0), axis=0).astype(np.float32) / 255
     except Exception as err:
         print(err)
         return None
@@ -362,10 +354,10 @@ def infer():
     Returns:
         [type]: [description]
     """
-    global net
-    if net is None: # Neural Network not inited
+    global ort_session
+    if ort_session is None: # Neural Network not inited
         init()
-        if net is None:
+        if ort_session is None:
             print("[ Error ] Failed to init neural network:")
             return jsonify({"code": 500, "res": -3})
 
@@ -375,16 +367,18 @@ def infer():
         print(obj_info)
     except KeyError:
         print("[ Error ] No argument")
-        return {"code": 500, "res": -2}
+        return jsonify({"code": 500, "res": -2})
 
     stimulis = decode_picture_from_url(obj_info["url"])
     if stimulis is not None:
-        pred = net(stimulis)
-        pred_decoded = torch.argmax(pred, dim=1)
+        
+        stimulis = {ort_session.get_inputs()[0].name:stimulis}
+        pred = ort_session.run(None, stimulis)[0]
+
+        res = np.argmax(pred[0])
         print("[ Info ] Prediction tensor is:", pred)
-        res = int(pred_decoded.cpu().numpy())
         print("[ Info ] Prediction decoded is:", res)
-        return jsonify({"code": 200, "res": res})
+        return jsonify({"code": 200, "res": int(res)})
     else:
         print("[ Error ] stimulis is None:")
         return jsonify({"code": 500, "res": -1})
@@ -393,30 +387,27 @@ def infer():
 def init():
     """Prepare the neural network
     """
-    global net
+    global ort_session
 
-    if torch.cuda.is_available():
-        device = torch.device("cuda:0")
-    else:
-        device = torch.device('cpu')
+    if ort_session is None:
+        model = onnx.load(PATH_TO_ONNX_MODEL)
+        onnx.checker.check_model(model)
+        ort_session = ort.InferenceSession(PATH_TO_ONNX_MODEL)
 
-    net = LeNet5()
-    net.load_state_dict(torch.load(PATH_TO_STATE_DICT))
-    net.to(device)
-    net.eval()
     return Response("OK", status=200, mimetype='text/html')
 
 
 if __name__ == '__main__':
     SERVING_PORT: int = 8080
+    init()
     server = pywsgi.WSGIServer(('0.0.0.0', SERVING_PORT), app)
     server.serve_forever()
 ```
 
 The WebApp we designed can be accessed by HTTP GET/POST actions. For example:
 
-```url
-$ curl -X POST -d '{"value":{"url":"http://192.168.1.82:9000/mnist/082d97b2-19f1-11ec-a558-1e00d10c4441.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=testAccessKey%2F20210921%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20210921T165246Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=00acbe0487c7dab233d75ec64b3385fccb26dd7c6c8a83858490bdc1e002280e"}}' -H 'Content-Type: application/json' http://localhost:8080/run
+```console
+$ curl -X POST -d '{"value":{"url":"http://192.168.1.82:9000/mnist/test_picture.png"}}' -H 'Content-Type: application/json' http://localhost:8080/run
 {"code":200,"res":6}
 ```
 
@@ -426,10 +417,10 @@ $ curl -X POST -d '{"value":{"url":"http://192.168.1.82:9000/mnist/082d97b2-19f1
 2. Get image from url
 3. Generate prediction
 
-| Name          | Type | Description        | Example                                      |
-| ------------- | ---- | ------------------ | -------------------------------------------- |
-| `bucket_name` | str  | Name of the bucket | `"mnist"`                                    |
-| `object_name` | str  | Name of the object | `"082d97b2-19f1-11ec-a558-1e00d10c4441.png"` |
+|Name|Type|Description|Example|
+|---|---|---|---|
+|`bucket_name`|str|Name of the bucket|`"mnist"`|
+|`object_name`|str|Name of the object|`"082d97b2-19f1-11ec-a558-1e00d10c4441.png"`|
 
 These information can be obtained from `upload()` function.
 
@@ -465,45 +456,22 @@ We come up with the following Dockerfile to build our custom ML image:
 - It launches our flask ML application
 
 ```Dockerfile
-FROM ubuntu:latest
+FROM python:3.8.8-slim
 
 ENV LANG=C.UTF-8
 
-RUN apt-get update -q && \
-    apt-get install -q -y --no-install-recommends \
-        bzip2 \
-        ca-certificates \
-        git \
-        libglib2.0-0 \
-        libsm6 \
-        libxext6 \
-        libxrender1 \
-        mercurial \
-        openssh-client \
-        procps \
-        subversion \
-        wget \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+WORKDIR /opt/app/
 
-RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-py38_4.10.3-Linux-x86_64.sh -O ~/miniconda.sh && \
-    /bin/bash ~/miniconda.sh -b -p /opt/miniconda && \
-    rm ~/miniconda.sh && \
-    /opt/miniconda/bin/conda clean -tipsy && \
-    ln -s /opt/miniconda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
-    echo ". /opt/miniconda/etc/profile.d/conda.sh" >> ~/.bashrc && \
-    echo "conda activate mnist" >> ~/.bashrc
+RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple && \
+    pip install minio pillow tqdm flask gevent requests onnx onnxruntime
 
-ENV PATH=/opt/miniconda/bin:$PATH MINIO_ENDPOINT=0.0.0.0:9000 MINIO_ACCESS_KEY=testAccessKey MINIO_SECRET_KEY=testSecretKey PATH_TO_STATE_DICT=/opt/mnist/model.pth
-COPY ["tsinghua.condarc", "/root/.condarc"]
-RUN conda env create -f /opt/mnist/env.yml
-RUN . /root/.bashrc && \
-    /opt/miniconda/bin/conda init bash && \
-    conda activate mnist && conda info --envs && \
-    pip install torch==1.8.0+cpu torchvision==0.9.0+cpu torchaudio==0.8.0 -f https://download.pytorch.org/whl/torch_stable.html
+ENV PATH_TO_ONNX_MODEL=/opt/app/model.onnx
 
-COPY ["model.pth","model.py","deploy-flask.py","env.yml", "/opt/mnist/"]
-CMD ["/bin/bash", "-c", "/opt/miniconda/envs/mnist/bin/python /opt/mnist/deploy-flask.py"]
+COPY ["model.onnx", "deploy-flask.py", "/opt/app/"]
+
+EXPOSE 8080
+
+CMD ["/bin/bash", "-c", "python /opt/app/deploy-flask.py"]
 
 ```
 
@@ -550,7 +518,7 @@ OK
 ```
 
 ```bash
-$ curl -X POST -d '{"value":{"bucket_name": "mnist", "object_name": "082d97b2-19f1-11ec-a558-1e00d10c4441.png"}}' -H 'Content-Type: application/json' http://localhost:8080/run
+$ curl -X POST -d '{"value":{"url": "http://192.168.1.82:9000/mnist/test_picture.png"}}' -H 'Content-Type: application/json' http://localhost:8080/run
 {"code":200,"res":6}
 ```
 
@@ -571,7 +539,7 @@ wsk action update mnist --docker natrium233/python3action-mnist:1.2
 Invoke
 
 ```bash
-$ wsk action invoke mnist --result --param url "http://192.168.1.82:9000/mnist/082d97b2-19f1-11ec-a558-1e00d10c4441.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=testAccessKey%2F20210921%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20210921T165246Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=00acbe0487c7dab233d75ec64b3385fccb26dd7c6c8a83858490bdc1e002280e"
+$ wsk action invoke mnist --result --param url "http://192.168.1.82:9000/mnist/test_picture.png"
 {
     "code": 200,
     "res": 6
@@ -605,12 +573,14 @@ ok: created API /ml/mnist POST for action /_/mnist
 http://172.17.0.1:3234/api/23bc46b1-71f6-4ed5-8c54-816aa4f8c502/ml/mnist
 ```
 
+> If the action is already created without `--web true`, `wsk action update "/_/mnist" --web true` need to be executed to update it
+
 > `172.17.0.1` is docker bridge network IP. However, We can also access to API via `localhost` since API gateway is enabled.
 
 Test this api with curl
 
 ```bash
-$ curl -X POST -d '{"url":"http://192.168.1.82:9000/mnist/082d97b2-19f1-11ec-a558-1e00d10c4441.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=testAccessKey%2F20210921%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20210921T165246Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=00acbe0487c7dab233d75ec64b3385fccb26dd7c6c8a83858490bdc1e002280e"}' -H 'Content-Type: application/json' http://localhost:3234/api/23bc46b1-71f6-4ed5-8c54-816aa4f8c502/ml/mnist
+$ curl -X POST -d '{"url":"http://192.168.1.82:9000/mnist/test_picture.png"}' -H 'Content-Type: application/json' http://localhost:3234/api/23bc46b1-71f6-4ed5-8c54-816aa4f8c502/ml/mnist
 {
   "code": 200,
   "res": 6
@@ -698,7 +668,6 @@ if __name__ == '__main__':
 
     # Delete the image
     minioClient.remove_object(args.bucket_name, object_name)
-
 ```
 
 We can run the demo by passing arguments:
