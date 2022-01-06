@@ -9,3 +9,5 @@
 /docs/Lab2/Serverless/code/data/MNIST/*
 /docs/Lab3/code/data/MNIST/*
 /docs/Lab3/code/logs/*
+docs/Lab2/Serverless/code/model.pth
+docs/Lab2/Serverless/code/model.onnx
