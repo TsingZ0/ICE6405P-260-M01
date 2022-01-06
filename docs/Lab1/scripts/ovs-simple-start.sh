@@ -66,7 +66,7 @@ sudo ovsdb-server --remote=punix:/usr/local/var/run/openvswitch/db.sock \
 set -e
 
 # Configure ovs
-echo ">>> Cofniguring ovs"
+echo ">>> Configuring ovs"
 sudo ovs-vsctl --no-wait set Open_vSwitch . other_config:dpdk-init=true
 #0x06 = 0b110 will use core 2 and core 1
 sudo ovs-vsctl set Open_vSwitch . other_config:pmd-cpu-mask=0x6
