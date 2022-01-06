@@ -32,6 +32,7 @@ fi
 cd ovs
 git checkout v$OVS_VERSION
 ./boot.sh
+export CC=clang
 ./configure --with-dpdk=yes
 make -j$N_PROC
 
@@ -45,7 +46,7 @@ echo "export PATH=\$PATH:/usr/local/share/openvswitch/scripts" >> $PROFILE
 echo "Installation completed, you should run 'source $PROFILE' to use ovs commands"
 else
 echo "Installation completed."
-if
+fi
 
 
 cd $CURR_PATH
