@@ -1,3 +1,9 @@
 *.vscode
 *.pyc
 .DS_Store
+*tar.gz
+
+/docs/Lab2/DistributedTraining/code/dataset_dl/data/*
+/docs/Lab2/Serverless/code/data/MNIST/*
+/docs/Lab3/code/data/MNIST/*
+/docs/Lab3/code/logs/*
