@@ -45,6 +45,7 @@ fi
 
 tar -xzvf OpenWhisk_CLI-$OPENWSK_CLI_VERSION-linux-$ARCH.tgz 
 sudo mv wsk /usr/local/bin/
-
-echo "Installation completed, 'wsk' command should be available. Run OpenWhisk with 'java -jar $SRC_PATH/bin/openwhisk-standalone.jar'"
+echo "alias start-openwsk=\"java -jar $SRC_PATH/openwhisk/bin/openwhisk-standalone.jar\"
+" >> $PROFILE
+echo "Installation completed, 'wsk' command should be available. Run OpenWhisk with 'java -jar $SRC_PATH/openwhisk/bin/openwhisk-standalone.jar' or the alias 'start-openwsk'"
 cd $CURR_PATH
