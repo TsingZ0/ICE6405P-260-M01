@@ -27,6 +27,7 @@ sudo $PKG_MANAGER install build-essential \
 					 autoconf \
 					 libtool \
 					 libgtk-3-dev \
+					 clang \
 					 libsysfs-dev -y
 sudo $PKG_MANAGER clean
 sudo $PKG_MANAGER autoclean

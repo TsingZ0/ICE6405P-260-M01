@@ -30,6 +30,7 @@ cd $DPDK_DIR
 export DPDK_BUILD=$DPDK_DIR/build
 
 # Build dpdk from source
+export CC=clang
 meson build
 ninja -C build
 sudo ninja -C build install
