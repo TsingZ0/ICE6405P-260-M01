@@ -46,6 +46,8 @@ $ qemu-system-x86_64
 
 A window will pop out indicating that a virtual machine has been created
 
+> See `setup-qemu.sh`
+
 ### Install CentOS8
 
 The CentOS installation image can be downloaded from Internet.
@@ -95,6 +97,8 @@ $ qemu-system-x86_64 -serial stdio \
    -nic user,model=virtio
 ```
 
+> See `qemu-install-os.sh`
+
 #### Command args explained
 
 | Argument | Explanation |
@@ -129,6 +133,7 @@ $ qemu-system-x86_64 -serial stdio \
    -nic user,model=virtio,hostfwd=tcp::10122-:22
 ```
 
+> See `qemu-simple-start.sh`
 ### SSH to CentOS8 virtual machine
 
 We have already mapped port 22 of VM to localhost:10122. To SSH to VM, simply execute
@@ -181,6 +186,8 @@ $ sudo -E $(which qemu-system-x86_64) -serial stdio \
    -nic user,model=virtio,hostfwd=tcp::10122-:22 \
    -enable-kvm
 ```
+
+> See `qemu-kvm-start.sh`
 
 ```bash
 $ time echo "scale=5000; 4*a(1)" | bc -l -q # On CentOS VM
@@ -245,64 +252,69 @@ export PATH=$PATH:/usr/local/share/openvswitch/scripts
 > $ update-grub2
 > ```
 
+> See `setup-dpdk.sh`
+
 Configure OpenVSwitch with this bash script
 
 ```bash
 #!/bin/bash
-# start-ovs.sh
+# ovs-simple-start.sh
 
 set -e 
 
+# ------- BEGIN CONFIGURATION ------- #
 ETH_INTERFACE=enp1s0 # Name of ethernet interface
 MEM_HUGEPAGE=4096 # Hugepage size
 OVSDEV_PCIID=0000:06:00.0
 DPDK_DIR=/home/liyutong/Src/dpdk/dpdk-stable-20.11.1 # DPDK installation
+OVS_RUN_DIR=/usr/local/var/run/openvswitch # DPDK run dir
 OVS_SCRIPT_PATH=/usr/local/share/openvswitch/scripts # OVS script path
-DB_SOCK=/usr/local/var/run/openvswitch/db.sock # Place to create db sock
-OVSDB_PID=/usr/local/var/run/openvswitch/ovs-vswitchd.pid # Place to store OBSDB pid
+# -------- END CONFIGURATION -------- #
+DB_SOCK=$OVS_RUN_DIR/db.sock # Place to create db sock
+OVSDB_PID=$OVS_RUN_DIR/ovs-vswitchd.pid # Place to store OBSDB pid
 
-OVS_RUN_DIR="/usr/local/var/run/openvswitch/"
-if [ ! -d $OVS_RUN_DIR ]; then
+if [ ! -d "$OVS_RUN_DIR" ]; then
 echo "making dir $OVS_RUN_DIR" && sudo mkdir -p "$OVS_RUN_DIR"
 fi
 
-
-
-
+# Kill all ovs process
+set +e
+sudo killall -9 ovsdb-server
+sudo killall -9 ovs-vswitchd
+set -e
 # Init service
 # Dont need on Ubuntu 18.04
 # sudo service openvswitch-switch start 
 
 # Configure hugepage
+echo ">>> Configuring hugepage"
 sudo sysctl -w vm.nr_hugepages=$MEM_HUGEPAGE
 echo $MEM_HUGEPAGE | sudo tee /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
 grep HugePages_ /proc/meminfo
 sudo mount -t hugetlbfs none /dev/hugepages
 
 # Set vifo permission
+echo ">>> Configuring vfio-pci"
 dmesg | grep -e DMAR -e IOMMU
 modprobe vfio-pci
 sudo /bin/chmod a+x /dev/vfio
 sudo /bin/chmod 0666 /dev/vfio/*
 
 # Configure DPDK
-set +e
+echo ">>> Configuring DPDK"
 sudo $DPDK_DIR/usertools/dpdk-devbind.py --status
 sudo $DPDK_DIR/usertools/dpdk-devbind.py --bind=vfio-pci $ETH_INTERFACE
 sudo $DPDK_DIR/usertools/dpdk-devbind.py --status
-set -e
 
 # Create ovsdb
 if [ ! -f "/usr/local/etc/openvswitch/conf.db" ];then
+echo ">>> Creating db"
 sudo ovsdb-tool create /usr/local/etc/openvswitch/conf.db /usr/local/share/openvswitch/vswitch.ovsschema
 fi
 
 # Start ovsdb
 set +e
-if [ -f "$OVSDB_PID" ];then
-sudo kill -9 $(cat $OVSDB_PID)
-sudo rm -f $OVSDB_PID
-fi
+echo ">>> Starting ovsdb"
 sudo ovsdb-server --remote=punix:/usr/local/var/run/openvswitch/db.sock \
              --remote=db:Open_vSwitch,Open_vSwitch,manager_options \
              --private-key=db:Open_vSwitch,SSL,private_key \
@@ -312,6 +324,7 @@ sudo ovsdb-server --remote=punix:/usr/local/var/run/openvswitch/db.sock \
 set -e
 
 # Configure ovs
+echo ">>> Configuring ovs"
 sudo ovs-vsctl --no-wait set Open_vSwitch . other_config:dpdk-init=true
 #0x06 = 0b110 will use core 2 and core 1
 sudo ovs-vsctl set Open_vSwitch . other_config:pmd-cpu-mask=0x6
@@ -320,6 +333,7 @@ sudo ovs-vsctl set Open_vSwitch . other_config:dpdk-lcore-mask=0x1
 
 # Start ovs
 set +e
+echo ">>> Starting ovs"
 sudo $OVS_SCRIPT_PATH/ovs-ctl --no-ovsdb-server --db-sock="$DB_SOCK" start
 set -e
 
@@ -329,8 +343,10 @@ sudo ovs-vswitchd --version
 
 ```
 
+> See `ovs-simple-start.sh`
+
 ```bash
-bash ./start-ovs.sh
+bash ./ovs-simple-start.sh
 ```
 
 ### Creating OpenVSwitch port and bridge
@@ -490,6 +506,8 @@ sudo -E $(which qemu-system-x86_64) -serial stdio \
    -device virtio-net-pci,netdev=vhost-user-0,mq=on,vectors=10,id=net0,mac=00:00:00:00:00:01
 ```
 
+> See `qemu-multiqueue-start.sh`
+
 ```bash
 (guest) $ ethtool -L ens7 combined 8
 (guest) $ cat /proc/interrupts | grep virtio
@@ -533,6 +551,8 @@ sudo -E $(which qemu-system-x86_64) \
    -device virtio-net-pci,netdev=mynet-0,mq=on,vectors=10,id=net0,mac=00:00:00:00:00:01 \
    -monitor stdio
 ```
+
+> See `qemu-migrate-1-start.sh`
 
 Create ovs port for VM2
 
@@ -587,6 +607,8 @@ sudo -E $(which qemu-system-x86_64) \
    -monitor stdio \
    -incoming tcp:0:16666
 ```
+
+> See `qemu-migrate-2-start.sh`
 
 We use a dummy disk image, so VM2 will not boot.
 

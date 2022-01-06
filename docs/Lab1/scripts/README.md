@@ -17,3 +17,7 @@
 ├── qemu-multiqueue-start.sh
 └── qemu-simple-start.sh
 ```
+
+- `centos_disk_0.img` Qemu disk image with OS
+- `centos_disk_dummy.img` Empty disk image
+- `CentOS-Stream-8-x86_64-latest-boot.iso` Installer
