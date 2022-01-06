@@ -344,27 +344,29 @@ sudo ovs-vswitchd --version
 
 ```
 
+The command `sudo ovs-vsctl set Open_vSwitch . other_config:dpdk-lcore-mask=0x1` bind dpdk to core 0
+The command `sudo ovs-vsctl set Open_vSwitch . other_config:pmd-cpu-mask=0x6` bind ovs to core 1 and core 2 (0x06 = 0b00110)
+
 > See `ovs-simple-start.sh`
 
 ```bash
-bash ./ovs-simple-start.sh
+$ bash ./ovs-simple-start.sh
 ```
 
 ### Creating OpenVSwitch port and bridge
 
 ```bash
-ovs-vsctl del-port vhost-user-0
-ovs-vsctl del-br br0
+$ ovs-vsctl del-port vhost-user-0
+$ ovs-vsctl del-br br0
 
-ovs-vsctl add-br br0 -- set bridge br0 datapath_type=netdev
-# ovs-vsctl add-port br0 dpdk0 -- set Interface dpdk0 type=dpdk  "options:dpdk-devargs=$OVSDEV_PCIID" 
-ovs-vsctl add-port br0 vhost-user-0 -- set Interface vhost-user-0 type=dpdkvhostuserclient options:vhost-server-path="/tmp/sock0"
+$ ovs-vsctl add-br br0 -- set bridge br0 datapath_type=netdev
+$ ovs-vsctl add-port br0 vhost-user-0 -- set Interface vhost-user-0 type=dpdkvhostuserclient options:vhost-server-path="/tmp/sock0"
 ```
 
 Verify
 
 ```bash
-ovs-vsctl show
+$ ovs-vsctl show
 21306a7e-21cb-46d8-9e7c-d00575428e6c
     Bridge br0
         datapath_type: netdev
@@ -387,7 +389,7 @@ ovs-vsctl show
 
 ```bash
 # Must match -object,size= with -m and less than /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
-sudo -E $(which qemu-system-x86_64) -serial stdio \
+$ sudo -E $(which qemu-system-x86_64) -serial stdio \
    -smp 2,sockets=1,cores=2,threads=1 -m 4096 \
    -device virtio-gpu-pci \
    -display default,show-cursor=on \
@@ -407,19 +409,19 @@ sudo -E $(which qemu-system-x86_64) -serial stdio \
 Since DPDK and OVS use Core 0,1,2. We bind our QEMU VM to Core 3,4,5,6.
 
 ```bash
-ps -eLo ruser,pid,ppid,lwp,psr,args |grep qemu|grep -v grep 
-sudo taskset -p 0x04 $PID
-sudo taskset -p 0x03 $PID
+$ ps -eLo ruser,pid,ppid,lwp,psr,args |grep qemu|grep -v grep 
+$ sudo taskset -p 0x78 $PID
 ```
+
 
 ### iperf, ping
 
 ```bash
-iperf3 -s -i 1 -p 1314
+(host) $ iperf3 -s -i 1 -p 1314
 ```
 
 ```bash
-iperf3 -c 192.168.1.207 -i 1 -P 30 -t 10 -p 1314
+(guest) $ iperf3 -c 192.168.1.207 -i 1 -P 30 -t 10 -p 1314
 ```
 
 #### Result - virtio
@@ -490,7 +492,7 @@ Assuming we have M queues. We should set 2M + 2 device vectors and use ethtool t
 
 ```bash
 # Must match -object,size= with -m and less than /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
-sudo -E $(which qemu-system-x86_64) -serial stdio \
+$ sudo -E $(which qemu-system-x86_64) -serial stdio \
    -smp 2,sockets=1,cores=2,threads=1 -m 4096 \
    -device virtio-gpu-pci \
    -display default,show-cursor=on \
@@ -534,8 +536,8 @@ In real-world scenario, the virtual disk is stored at a NFS shared path `$SHARED
 Enable monitor on VM1(source)
 
 ```bash
-SHARED_PATH=.
-sudo -E $(which qemu-system-x86_64) \
+$ SHARED_PATH=.
+$ sudo -E $(which qemu-system-x86_64) \
    -smp 2,sockets=1,cores=2,threads=1 -m 4096 \
    -device virtio-gpu-pci \
    -display default,show-cursor=on \
@@ -558,7 +560,7 @@ sudo -E $(which qemu-system-x86_64) \
 Create ovs port for VM2
 
 ```bash
-ovs-vsctl add-port br0 vhost-user-1 -- set Interface vhost-user-1 type=dpdkvhostuserclient options:vhost-server-path="/tmp/sock1"
+$ ovs-vsctl add-port br0 vhost-user-1 -- set Interface vhost-user-1 type=dpdkvhostuserclient options:vhost-server-path="/tmp/sock1"
 ```
 
 ```bash
@@ -583,14 +585,14 @@ $ sudo ovs-vsctl show
 Increase hugeage size:
 
 ```bash
-echo 8192 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
+$ echo 8192 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
 ```
 
 Start VM2:
 
 ```bash
-SHARED_PATH=.
-sudo -E $(which qemu-system-x86_64) \
+$ SHARED_PATH=.
+$ sudo -E $(which qemu-system-x86_64) \
    -smp 2,sockets=1,cores=2,threads=1 -m 4096 \
    -device virtio-gpu-pci \
    -display default,show-cursor=on \
@@ -616,7 +618,7 @@ sudo -E $(which qemu-system-x86_64) \
 In VM1's monitor, run:
 
 ```bash
-migrate tcp:$IP:6666
+(qemu) migrate tcp:$IP:6666
 ```
 
 After a while, we should be able to connect to VM2 via `ssh -p 10123 localhost`. The system is migrated
