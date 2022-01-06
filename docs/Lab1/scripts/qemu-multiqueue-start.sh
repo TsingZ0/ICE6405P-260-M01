@@ -1,4 +1,5 @@
 # Must match -object,size= with -m and less than /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
+# /tmp/sock0 is the socket created
 sudo -E $(which qemu-system-x86_64) -serial stdio \
    -smp 2,sockets=1,cores=2,threads=1 -m 4096 \
    -device virtio-gpu-pci \

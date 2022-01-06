@@ -1,5 +1,5 @@
 #!/bin/bash
-# start-ovs.sh
+# ovs-simple-start.sh
 
 set -e 
 
@@ -8,12 +8,11 @@ ETH_INTERFACE=enp1s0 # Name of ethernet interface
 MEM_HUGEPAGE=4096 # Hugepage size
 OVSDEV_PCIID=0000:06:00.0
 DPDK_DIR=/home/liyutong/Src/dpdk/dpdk-stable-20.11.1 # DPDK installation
-OVS_RUN_DIR=/usr/local/var/run/openvswitch
+OVS_RUN_DIR=/usr/local/var/run/openvswitch # DPDK run dir
 OVS_SCRIPT_PATH=/usr/local/share/openvswitch/scripts # OVS script path
-DB_SOCK=$OVS_RUN_DIR/openvswitch/db.sock # Place to create db sock
-OVSDB_PID=$OVS_RUN_DIR/ovs-vswitchd.pid # Place to store OBSDB pid
 # -------- END CONFIGURATION -------- #
-
+DB_SOCK=$OVS_RUN_DIR/db.sock # Place to create db sock
+OVSDB_PID=$OVS_RUN_DIR/ovs-vswitchd.pid # Place to store OBSDB pid
 
 if [ ! -d "$OVS_RUN_DIR" ]; then
 echo "making dir $OVS_RUN_DIR" && sudo mkdir -p "$OVS_RUN_DIR"
