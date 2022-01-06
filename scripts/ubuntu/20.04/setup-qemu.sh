@@ -14,7 +14,7 @@ echo "making dir $SRC_PATH" && mkdir -p "$SRC_PATH"
 fi
 
 cd "$SRC_PATH"
-
+echo $(pwd)
 # Download qemu source code
 if [ ! -f "qemu-$QEMU_VERSION.tar.xz" ]; then
 wget https://download.qemu.org/qemu-$QEMU_VERSION.tar.xz
