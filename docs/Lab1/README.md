@@ -134,6 +134,7 @@ $ qemu-system-x86_64 -serial stdio \
 ```
 
 > See `qemu-simple-start.sh`
+
 ### SSH to CentOS8 virtual machine
 
 We have already mapped port 22 of VM to localhost:10122. To SSH to VM, simply execute
@@ -610,7 +611,7 @@ sudo -E $(which qemu-system-x86_64) \
 
 > See `qemu-migrate-2-start.sh`
 
-We use a dummy disk image, so VM2 will not boot.
+> When running experiment on a single machine, we cannot mount one qemu disk image to multiple qemu processes. Therefore a dummy disk image `centos_disk_dummy.img` is created. The disk is empty so VM2 will not boot at this point. In real-world scenario, NFS storage should be used
 
 In VM1's monitor, run:
 
