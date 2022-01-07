@@ -5,7 +5,7 @@
 ├── CentOS-Stream-8-x86_64-latest-boot.iso -> .../CentOS-Stream-8-x86_64-latest-boot.iso
 ├── README.md
 ├── centos_disk_0.img -> .../centos_disk_0.img
-├── centos_disk_dummy.img -> .../centos_disk_dummy.img
+├── centos_disk_1.img -> .../centos_disk_0.img (hard link)
 ├── dpdk-simple-start.sh
 ├── ovs-bind-port.sh
 ├── ovs-simple-start.sh
