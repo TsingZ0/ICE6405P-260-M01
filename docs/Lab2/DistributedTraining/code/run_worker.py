@@ -127,6 +127,9 @@ def init():
     global g_net
     g_net = Net()
     g_net.train()
+    resp = Response(mimetype='application/json')
+    resp.data = json.dumps({"code": 200})
+    return resp
 
 
 if __name__ == '__main__':
