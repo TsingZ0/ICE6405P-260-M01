@@ -1,19 +1,53 @@
 # Distributed Training
 
+- [Distributed Training](#distributed-training)
+  - [Preface](#preface)
+  - [Project Design](#project-design)
+    - [The Parameter Server](#the-parameter-server)
+    - [The Docker Contained Worker](#the-docker-contained-worker)
+  - [Preparing Dataset](#preparing-dataset)
+    - [2.1. <a name='Explanation'></a>Explanation](#21-explanation)
+    - [Summary of urls](#summary-of-urls)
+  - [Training](#training)
+    - [API test with curl](#api-test-with-curl)
+  - [Build Docker Image](#build-docker-image)
+  - [3. <a name='ConfigureOpenWhisk'></a>Configure OpenWhisk](#3-configure-openwhisk)
+  - [Changing server configuration](#changing-server-configuration)
+  - [Summary](#summary)
+
+## Preface
+
 > 这是一个示例应用程序 Dark vision，它就是这样做的。在此应用程序中，用户使用 Dark Vision Web 应用程序上载视频或图像，该应用程序将其存储在 Cloudant DB 中。视频上传后，OpenWhisk 通过听 Cloudant 更改（触发）来检测新视频。然后，OpenWhisk 触发视频提取器操作。在执行过程中，提取器将生成帧（图像）并将其存储在 Cloudant 中。然后使用 Watson Visual Recognition 处理帧，并将结果存储在同一 Cloudant DB 中。可以使用 Dark Vision Web 应用程序或 iOS 应用程序查看结果。除 Cloudant 外，还可以使用对象存储。这样做时，视频和图像元数据存储在 Cloudant 中，媒体文件存储在对象存储中。
 >
 > _from [【无服务器架构】openwhisk 经典使用案例](https://www.163.com/dy/article/GBJMDQNT0511DQI7.html)_
 
-## Designing the Parameter Server
+## Project Design
 
-A parameter server is created with `Flask` to serve model parameters to workers. Its jod is to:
+We intend to use the OpenWhisk serviceless computing framework for distributed machine learning. In order to do this, we first need to set up a parameter server for saving model parameters. This server provides  parameters for worker. This server can be implemented on a cluster for maximum performance, but given the simplicity of the experiment, we deploy it to a single machine.
 
-- Store model parameters, keep it versioned
-- Respond to workers' request of latest model parameters
-- Acceput gradient uploaded from workers
+Second, we need to define a serviceless function for training:
+
+$$
+\mathtt{NewParameters} = Train(\mathtt{Model}, \mathtt{Parameters}, \mathtt{Dataset})
+$$
+
+This function accepts the model, the model parameters, and the dataset as input and outputs the updated parameters. Considering the limitations of the OpenWhisk framework, in practice we fix the model to `LeNet5`, locate the dataset with a URL and pull the parameters from an external parameter server, hence the following pseudo code.
+
+```text
+def Train(Model=LeNet5, ParameterServerURL, DatasetURL, TrainSettings):
+    Dataset = GetFromURL(DatasetURL)
+    Parameters = PullFromParameterServer(ParameterServerURL)
+    TrainWithModel(Model, Parameters, Dataset, TrainSettings)
+```
+
+### The Parameter Server
+
+A parameter server is created by [`Flask`](https://flask.palletsprojects.com/en/2.0.x/) to serve model parameters to workers. Its mission is to:
+
+- Store model parameters in `model`, keep it versioned by updating `model.version`
+- Respond to workers' request of latest model parameters via `/getParameter`
+- Acceput gradient uploaded from workers from `/putGradient`
 - Optimize model parameters according to gradient received
-
-Once updated, `model.version` will increase. The workers can check version of model via `/getVersion` api. If the model is updated on the parameter server, workers can choose to download latest parameters to local
 
 The api of this server is summarized as bellow:
 
@@ -29,11 +63,18 @@ The api of this server is summarized as bellow:
 > some sort of access/secret key pair and SSL encryption to avoid abuse of model parameters. On the other hand,
 > sending pickle serialized object over http is not secure. We are aware of these vulnerabilities
 
+Once updated, `model.version` will increase. The workers can check version of model via `/getVersion` api. If the model is updated on the parameter server, workers can choose to download latest parameters to local
+
 Full code of parameter server can be found in `run_server.py`
 
-## Design Docker Contained Worker
+### The Docker Contained Worker
 
-The worker will be launched by Openwhisk. Therefore, two api `/run` and `/init` are needed.
+The worker will be launched by Openwhisk. Therefore, we need to create: two api `/init` and `/run`
+
+| API     | Method | Type             | Significance      |
+| ------- | ------ | ---------------- | ----------------- |
+| `/init` | POST   | None             | Init NeuralNet    |
+| `/run`  | POST   | application/json | Execute trainning |
 
 Since we are building our own python action, `/init` api is insignificant:
 
@@ -54,7 +95,7 @@ The `/run` api, on the other hand, need parameters that are critical to training
         "epoch_n": 32,
         "apihost": "http://192.168.1.131:29500",
         "update_intv": 8,
-        "dataset_url": "http://192.168.1.131:9000/mnist-dataset/ea8105d0-1ddf-11ec-9aeb-c3cd4bc871fd.gz?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=testAccessKey%2F20210925%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20210925T090651Z&X-Amz-Expires=172800&X-Amz-SignedHeaders=host&X-Amz-Signature=9a7738e744b88077e0132946b82bc158e283a1ab0e0a5ffc9f295d3a84d357d7",
+        "dataset_url": "http://192.168.1.131:9000/mnist-dataset/dataset_dl_1.tar.gz",
         "device": "cpu"
     }
 }
@@ -64,9 +105,11 @@ Where the `value` key is **automatically added by OpenWhisk**.
 
 Full code of worker can be found  in `run_worker.py` and `worker_utils.py`
 
-## Test distributed training
+##  Preparing Dataset
 
-First, we split mnist dataset into 6 parts. A `dataset_dl` module is created :
+The goal of this section is to make datasets accessible via URL
+
+First, we split mnist dataset into 6 parts. A `dataset_dl` module is organized as follows :
 
 ```text
 ./dataset_dl
@@ -85,7 +128,9 @@ First, we split mnist dataset into 6 parts. A `dataset_dl` module is created :
             └── train-labels-idx1-ubyte.gz
 ```
 
-`__init__.py` import dataset object from`__dataset__.py`
+###  2.1. <a name='Explanation'></a>Explanation
+
+The `__init__.py` import dataset object from`__dataset__.py`
 
 ```python
 """__init__.py"""
@@ -120,15 +165,15 @@ dataset = torch.utils.data.Subset(_raw_dataset, range(50000, 60000))
 >
 > without knowiing the detail of implementation
 
-We then split the dataset by 6
+We then create 6 dataset, each dataset is a different subset of the whole MNIST dataset
 
 ```bash
-tar -zcvf dataset_dl_1.tar.gz ./dataset_dl # Subset(0,10000)
-tar -zcvf dataset_dl_2.tar.gz ./dataset_dl # Subset(10000,20000)
-tar -zcvf dataset_dl_3.tar.gz ./dataset_dl # Subset(20000,30000)
-tar -zcvf dataset_dl_4.tar.gz ./dataset_dl # Subset(30000,40000)
-tar -zcvf dataset_dl_5.tar.gz ./dataset_dl # Subset(40000,50000)
-tar -zcvf dataset_dl_6.tar.gz ./dataset_dl # Subset(50000,60000)
+$ tar -zcvf dataset_dl_1.tar.gz ./dataset_dl # Subset(0,10000)
+$ tar -zcvf dataset_dl_2.tar.gz ./dataset_dl # Subset(10000,20000)
+$ tar -zcvf dataset_dl_3.tar.gz ./dataset_dl # Subset(20000,30000)
+$ tar -zcvf dataset_dl_4.tar.gz ./dataset_dl # Subset(30000,40000)
+$ tar -zcvf dataset_dl_5.tar.gz ./dataset_dl # Subset(40000,50000)
+$ tar -zcvf dataset_dl_6.tar.gz ./dataset_dl # Subset(50000,60000)
 ```
 
 We upload these datasets to OSS with the help of previously created`file_uploader.py`, or via web interface of MinIO.
@@ -137,9 +182,11 @@ We upload these datasets to OSS with the help of previously created`file_uploade
 $ python file_uploader.py --endpoint=192.168.1.131:9000 --access_key=testAccessKey --secret_key=testSecretKey --bucket_name=mnist-dataset --file=dataset_dl_1.tar.gz
 {'bucket_name': 'mnist-dataset', 'object_name': 'd96e3d6c-1ddf-11ec-9aeb-c3cd4bc871fd.gz', 'url': 'http://192.168.1.131:9000/mnist-dataset/d96e3d6c-1ddf-11ec-9aeb-c3cd4bc871fd.gz?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=testAccessKey%2F20210925%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20210925T090622Z&X-Amz-Expires=172800&X-Amz-SignedHeaders=host&X-Amz-Signature=e44304c335bbd5ef00c8726eef207d8b3448956e35b072d60a5f4d4af08b0987'}
 
+```
 
 ### Summary of urls
 
+Finally, we have a list of dataset that can be accessed via URL.
 | Volume | URL                                                                                                                        |
 | ------ | -------------------------------------------------------------------------------------------------------------------------- |
 | 1      | [http://192.168.1.131:9000/mnist-dataset/dataset_dl_1.tar.gz](http://192.168.1.131:9000/mnist-dataset/dataset_dl_1.tar.gz) |
@@ -151,60 +198,99 @@ $ python file_uploader.py --endpoint=192.168.1.131:9000 --access_key=testAccessK
 
 > The dataset on OSS (data and `.py` descriptors) must be tar.gz archive.
 
+## Training
+
 ### API test with curl
 
+Before deployment, we first test distributed workers with `curl`.
+
+We first fire up the MinIO instance with `docker start minio`. Then the parameter server via
+
+```console
+$ python run_server.py
+```
+
+The parameter server will listen at port 29500
+
+![run_servers](./img/2022-01-08-16-34-40.png)
+
+Then, we start worker via:
+
+```console
+$ python run_worker.py
+```
+
+The `run_worker.py` will listen at port 8080. We need to use this API via `curl`.
+
 ```bash
+#!/bin/bash
+SERVER_HOST=http://172.17.0.1:29500
+DATASET_URL=http://172.17.0.1:9000/mnist-dataset/dataset_dl_1.tar.gz
+WORKER_HOST=http://localhost:8080
 curl -X POST \
-     -d '{"value":{"batch_sz_train": 32, "epoch_n": 32, "apihost": "http://192.168.1.207:29500","update_intv": 8, "dataset_url": "http://192.168.1.131:9000/mnist-dataset/dataset_dl_1.tar.gz","device": "cpu"}}' \
-     -H 'Content-Type: application/json' http://localhost:8080/run
+     -d '{"value":{"batch_sz_train": 32, "epoch_n": 32, "apihost": "'$SERVER_HOST'","update_intv": 8, "dataset_url": "'$DATASET_URL'","device": "cpu"}}' \
+     -H 'Content-Type: application/json' $WORKER_HOST/run
 ```
 
 > See `test-worker.sh`
 
-After local test is completed. We construct the docker image that runs the worker
+The training loop should start. And we can observe client activities from server side
+
+
+## Build Docker Image
+
+After local test is completed. We construct the docker image in which the worker runs
 
 ```bash
-docker build . -t python3action-dist-train-mnist
+$ cd ./code # root of code
+$ docker build . -t python3action-dist-train-mnist
 ```
 
-Test the containner locally with curl
+After the build, we test the containner locally with curl
 
 ```bash
-docker run --rm --net=host python3action-dist-train-mnist
-curl ...
+$ docker run --rm --net=host python3action-dist-train-mnist
+$ curl ...
 ```
 
-Tag the image and upload
+This will create a docker container that use host network. We test this container with the same method.After test, we tag the image and push it to docker registery
 
 ```bash
-docker login
-docker tag python3action-dist-train-mnist natrium233/python3action-dist-train-mnist:1.0
-docker push natrium233/python3action-dist-train-mnist:1.0  
+$ docker login
+$ docker tag python3action-dist-train-mnist natrium233/python3action-dist-train-mnist:1.0
+$ docker push natrium233/python3action-dist-train-mnist:1.0  
 ```
 
-## Configure OpenWhisk
+##  3. <a name='ConfigureOpenWhisk'></a>Configure OpenWhisk
 
 Create OpenWhisk action
 
 ```bash
-wsk action create dist-train --docker natrium233/python3action-dist-train-mnist:1.0 --web true --timeout 300000
+$ wsk action create dist-train --docker natrium233/python3action-dist-train-mnist:1.0 --web true --timeout 300000
 ```
 
-Invoke action
+> This command assumes that openwhisk is configured with api-gateway, otherwise you should remove the `--web true` flag
+
+To invoke this action, run
 
 ```bash
+#!/bin/bash
+SERVER_HOST=http://172.17.0.1:29500 
+DATASET_URL=http://172.17.0.1:9000/mnist-dataset/dataset_dl_1.tar.gz
 wsk action invoke dist-train \
     --param batch_sz_train 32 \
     --param epoch_n 8 \
-    --param apihost 'http://192.168.1.207:29500' \
+    --param apihost $SERVER_HOST \
     --param update_intv 8 \
-    --param dataset_url 'http://192.168.1.131:9000/mnist-dataset/dataset_dl_1.tar.gz' \
+    --param dataset_url $DATASET_URL \
     --param device cpu
 ```
 
-> Parameter server is at `192.168.1.207`
-> OSS server is at `192.168.1.131`
-> Modify this section on demand
+The action will create workers, and we can monitor worker activity via parameter server.
+
+> Modify SERVER_HOST and DATASET_URL on demand
+
+> See `test-wsk-action.sh` for details
 
 ## Changing server configuration
 
@@ -225,6 +311,8 @@ c35b1fee108c   wsk0_14_guest_disttrain    33.04%    166.5MiB / 256MiB     65.04%
 9cb88380585d   wsk0_15_guest_disttrain    33.64%    167.1MiB / 256MiB     65.28%    30.5MB / 13.6MB   3.6MB / 55MB     4
 15e384116b43   wsk0_16_prewarm_nodejs14   0.00%     10.39MiB / 256MiB     4.06%     3.28kB / 0B       401kB / 0B       8
 ```
+
+## Summary
 
 The 4GB virtual machine I created have 2.5GiB of free memory at idle stat. But since each activation consumes 33% of CPU, the virtual machine can only hold up to 3 workers at one time
 

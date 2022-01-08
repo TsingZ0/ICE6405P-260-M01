@@ -10,4 +10,4 @@ _raw_dataset = torchvision.datasets.MNIST(
             torchvision.transforms.Normalize((0.1307, ), (0.3081, ))
         ]))
 
-dataset = torch.utils.data.Subset(_raw_dataset, range(50000, 60000))
+dataset = torch.utils.data.Subset(_raw_dataset, range(0, 10000))
