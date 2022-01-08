@@ -1,5 +1,7 @@
 # Contents of this folder
 
+During experiment, the content of folder is as follows
+
 ```text
 ./docs/Lab1/scripts
 ├── CentOS-Stream-8-x86_64-latest-boot.iso -> .../CentOS-Stream-8-x86_64-latest-boot.iso

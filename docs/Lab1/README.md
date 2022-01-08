@@ -1,20 +1,55 @@
 # Virtualization
 
-## Getting QEMU ready
+- [Virtualization](#virtualization)
+  - [Preface](#preface)
+  - [Getting QEMU ready](#getting-qemu-ready)
+    - [Check KVM support](#check-kvm-support)
+    - [Install Qemu dependencies](#install-qemu-dependencies)
+    - [Install Qemu from source](#install-qemu-from-source)
+  - [Getting VM ready](#getting-vm-ready)
+    - [Install CentOS8](#install-centos8)
+      - [Command args explained](#command-args-explained)
+    - [SSH to CentOS8 virtual machine](#ssh-to-centos8-virtual-machine)
+  - [OpenVSwitch DPDK](#openvswitch-dpdk)
+    - [Get DPDK](#get-dpdk)
+    - [OpenVSwitch configuration](#openvswitch-configuration)
+    - [Creating OpenVSwitch port and bridge](#creating-openvswitch-port-and-bridge)
+    - [Relaunch QEMU with vhost-user support](#relaunch-qemu-with-vhost-user-support)
+  - [Network Profiling](#network-profiling)
+    - [iperf result](#iperf-result)
+      - [virtio](#virtio)
+      - [vhost](#vhost)
+    - [ping test result](#ping-test-result)
+      - [virtio](#virtio-1)
+      - [vhost](#vhost-1)
+    - [Summary of experiment result](#summary-of-experiment-result)
+  - [Multi-Queue](#multi-queue)
+  - [Live Migration](#live-migration)
+  - [Appendix - convenient setup script](#appendix---convenient-setup-script)
 
-Host Platform: Ubuntu 20.04 LTS (x86_64), i7-9700K, 32GB RAM, bare metal.
+
+## Preface
+
+The experiment is carried out on a host with Ubuntu 20.04 LTS (x86_64), i7-9700K, 32GB RAM, bare metal.
+
+We first build QEMU from source, then install DPDK and OpenVSwitch with DPDK enabled. Then we carry out our experiment.
+
+## Getting QEMU ready
 
 ### Check KVM support
 
-KVM is a Linux kernel feature.
+We should first check the KVM support. KVM is a Linux kernel feature.
 
 ```bash
 $ lsmod | grep kvm
 kvm_intel             294912  0
 kvm                   819200  1 kvm_intel
 ```
+> If their is no KVM device, you should consider enable hardware virtualization support in BIOS/UEFI Firmware
 
 ### Install Qemu dependencies
+
+QEMU require several dependencies.
 
 ```bash
 $ sudo apt-get install ninja-build libmount-dev libpixman-1-dev libusb-1.0 libeproxy-dev
@@ -32,13 +67,13 @@ $ ./configure --enable-vhost-user --enable-vhost-net --enable-kvm  --enable-libu
 $ make -j8
 ```
 
-Add qemu to PATH
+After Installation, we add qemu to `PATH` so that we can execute `qemu-system-*` in shell.
 
 ```bash
 $ export PATH=$(pwd)/build:$PATH
 ```
 
-Then, verify the installation is successful
+Then, use the following command to verify the installation is successful
 
 ```bash
 $ qemu-system-x86_64
@@ -47,6 +82,10 @@ $ qemu-system-x86_64
 A window will pop out indicating that a virtual machine has been created
 
 > See `setup-qemu.sh`
+
+## Getting VM ready
+
+In this section, we will create and launch a CentOS8 VM with qemu.
 
 ### Install CentOS8
 
@@ -60,6 +99,7 @@ $ qemu-img create -f qcow2 centos_disk_0 10G
 Formatting 'centos_disk_0.img', fmt=qcow2 cluster_size=65536 extended_l2=off compression_type=zlib size=10737418240 lazy_refcounts=off refcount_bits=16
 ```
 
+> `$WORKING_DIR` the place to store VM disk image
 This command:
 
 - creates an `IMG` formatted virtual disk`centos_disk_0.img`
@@ -101,19 +141,19 @@ $ qemu-system-x86_64 -serial stdio \
 
 #### Command args explained
 
-| Argument | Explanation |
-|---|---|
-|-serial stdio| Forwarding `stdio` to serial  emulator|
-|-smp 4,sockets=1,cores=4,threads=1| The system has 1 virtual CPU with 4 cores, each core has 1 thread|
-|-m 4096| Available memory is 4096 MB|
-|-device virtio-gpu-pci| Create a virtual GPU device|
-|-display default,show-cursor=on| Configure display interface as default |
-|-device qemu-xhci -device usb-kbd| USB bus|
-|-device usb-tablet -device intel-hda| Tablet driver and Intel High Definition Audio|
-|-device hda-duplex| HDA dubplex|
-|-drive file=centos_disk_0.img,if=virtio,cache=writethrough| Mount `centos_disk_0.img` as a `virtio` disk, cache policy is writethrough|
-|-cdrom centos8.iso| Mound the installation media as a CD drive|
-|-nic user,model=virtio| Create a virtual nic using virtio|
+| Argument                                                   | Explanation                                                                |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------- |
+| -serial stdio                                              | Forwarding `stdio` to serial  emulator                                     |
+| -smp 4,sockets=1,cores=4,threads=1                         | The system has 1 virtual CPU with 4 cores, each core has 1 thread          |
+| -m 4096                                                    | Available memory is 4096 MB                                                |
+| -device virtio-gpu-pci                                     | Create a virtual GPU device                                                |
+| -display default,show-cursor=on                            | Configure display interface as default                                     |
+| -device qemu-xhci -device usb-kbd                          | USB bus                                                                    |
+| -device usb-tablet -device intel-hda                       | Tablet driver and Intel High Definition Audio                              |
+| -device hda-duplex                                         | HDA dubplex                                                                |
+| -drive file=centos_disk_0.img,if=virtio,cache=writethrough | Mount `centos_disk_0.img` as a `virtio` disk, cache policy is writethrough |
+| -cdrom centos8.iso                                         | Mound the installation media as a CD drive                                 |
+| -nic user,model=virtio                                     | Create a virtual nic using virtio                                          |
 
 We finish installation steps in the GUI:
 
@@ -137,15 +177,17 @@ $ qemu-system-x86_64 -serial stdio \
 
 ### SSH to CentOS8 virtual machine
 
-We have already mapped port 22 of VM to localhost:10122. To SSH to VM, simply execute
+We have already mapped port 22 of VM to localhost:10122. To SSH to VM, simply execute the following SSH command on host
 
 ```bash
 $ ssh -p 10122 localhost
 ```
 
+On guest, we test internet connection with wget
+
 ```bash
-$ mkdir Downloads && cd Downloads
-$ wget www.sjtu.edu.cn
+(guest) $ mkdir Downloads && cd Downloads
+(guest) $ wget www.sjtu.edu.cn
 --2021-09-26 01:32:15--  http://www.sjtu.edu.cn/
 Resolving www.sjtu.edu.cn (www.sjtu.edu.cn)... 202.120.2.119, 2001:da8:8000:6fc0:102:1200:2:48
 Connecting to www.sjtu.edu.cn (www.sjtu.edu.cn)|202.120.2.119|:80... connected.
@@ -162,13 +204,18 @@ index.html                  100%[========================================>]  73.
 2021-09-26 01:32:16 (11.2 MB/s) - ‘index.html’ saved [75355/75355]
 ```
 
-Testing CPU performance
+On guest, we test CPU performance with
 
 ```bash
-$ time echo "scale=5000; 4*a(1)" | bc -l -q # On Ubuntu host
-... 11.78s
-$ time echo "scale=5000; 4*a(1)" | bc -l -q # On CentOS VM
+(guest) $ time echo "scale=5000; 4*a(1)" | bc -l -q # On CentOS VM
 ... 1m3.173s
+```
+
+On host:
+
+```bash
+(host) $ time echo "scale=5000; 4*a(1)" | bc -l -q # On Ubuntu host
+... 11.78s
 ```
 
 The CPU performance of VM is significantly poorer than Host. This is because we disabled KVM in VM. To enable KVM, append `-enable-kvm` argument at the end of launch command:
@@ -191,19 +238,21 @@ $ sudo -E $(which qemu-system-x86_64) -serial stdio \
 > See `qemu-kvm-start.sh`
 
 ```bash
-$ time echo "scale=5000; 4*a(1)" | bc -l -q # On CentOS VM
+(guest) $ time echo "scale=5000; 4*a(1)" | bc -l -q # On CentOS VM
 ... 0m15.059s
 ```
 
 The performance of KVM is acceptable
 
-## OpenVSwitch DPDk
+## OpenVSwitch DPDK
+
+In this section, we install and configure OpenVSwitch and DPDK on Host
 
 ### Get DPDK
 
-Install `meson` and `clang`
+We install `meson` and `clang`:
 
-> In our case (Ubuntu 20.04, Intel Core i7 1165G7, gcc 9.3.0 cannot enable SSE4.2 support)
+> In our case (Ubuntu 20.04, Intel Core i7 1165G7, gcc 9.3.0 cannot enable SSE4.2 support), therefore we use `clang` to build DPDK
 
 ```bash
 $ sudo apt-get install meson clang
@@ -218,9 +267,9 @@ $ cd $DPDK_DIR
 $ export DPDK_BUILD=$DPDK_DIR/build
 $ export CC=clang
 $ meson build
-ninja -C build
-sudo ninja -C build install
-sudo ldconfig
+$ ninja -C build
+$ sudo ninja -C build install
+$ sudo ldconfig
 ```
 
 Check version
@@ -242,12 +291,14 @@ $ make install
 export PATH=$PATH:/usr/local/share/openvswitch/scripts
 ```
 
-> Some platfrom might need to enable iommu support
+> Some platfrom might need to enable iommu support. This include modification on /etc/default/grub
 >
 > ```ini
 > # In /etc/default/grub, add 
 > GRUB_CMDLINE_LINUX="iommu=pt intel_iommu=on"
 > ```
+>
+> Run `update-grub2` to make changes effective
 >
 > ```console
 > $ update-grub2
@@ -255,7 +306,7 @@ export PATH=$PATH:/usr/local/share/openvswitch/scripts
 
 > See `setup-dpdk.sh`
 
-Configure OpenVSwitch with this bash script
+Start OpenVSwitch with this **original**  bash script
 
 ```bash
 #!/bin/bash
@@ -338,7 +389,7 @@ echo ">>> Starting ovs"
 sudo $OVS_SCRIPT_PATH/ovs-ctl --no-ovsdb-server --db-sock="$DB_SOCK" start
 set -e
 
-# Valiating
+# Validating
 sudo ovs-vsctl get Open_vSwitch . dpdk_initialized
 sudo ovs-vswitchd --version
 
@@ -355,6 +406,8 @@ $ bash ./ovs-simple-start.sh
 
 ### Creating OpenVSwitch port and bridge
 
+After the OVS has stated, we create OVS bridges and ports so that our VM can link to OVS
+
 ```bash
 $ ovs-vsctl del-port vhost-user-0
 $ ovs-vsctl del-br br0
@@ -363,10 +416,12 @@ $ ovs-vsctl add-br br0 -- set bridge br0 datapath_type=netdev
 $ ovs-vsctl add-port br0 vhost-user-0 -- set Interface vhost-user-0 type=dpdkvhostuserclient options:vhost-server-path="/tmp/sock0"
 ```
 
-Verify
+> `vhost-user-0` is the port for VM
+
+We can verify OVS datapath structure with ovs-vsctl
 
 ```bash
-$ ovs-vsctl show
+$ sudo ovs-vsctl show
 21306a7e-21cb-46d8-9e7c-d00575428e6c
     Bridge br0
         datapath_type: netdev
@@ -406,15 +461,18 @@ $ sudo -E $(which qemu-system-x86_64) -serial stdio \
    -device virtio-net-pci,netdev=mynet0,id=net0,mac=00:00:00:00:00:01
 ```
 
-Since DPDK and OVS use Core 0,1,2. We bind our QEMU VM to Core 3,4,5,6.
+Since DPDK and OVS use Core 0,1,2. We bind our QEMU VM to Core 3,4,5,6. `taskset` can bind a process to selected cores
 
 ```bash
 $ ps -eLo ruser,pid,ppid,lwp,psr,args |grep qemu|grep -v grep 
-$ sudo taskset -p 0x78 $PID
+$ sudo taskset -cp 0x78 $PID # Mask 0b01111000
 ```
 
+## Network Profiling
 
-### iperf, ping
+In this section, we use `iperf3` and `ping` to perform network profiling.
+
+For example:
 
 ```bash
 (host) $ iperf3 -s -i 1 -p 1314
@@ -424,23 +482,45 @@ $ sudo taskset -p 0x78 $PID
 (guest) $ iperf3 -c 192.168.1.207 -i 1 -P 30 -t 10 -p 1314
 ```
 
-#### Result - virtio
+### iperf result
 
-192.168.1.207 (Host) Multiprocess
+#### virtio
+
+192.168.1.207 (VM-Host) Multiprocess
 
 ```text
 [SUM]   0.00-10.00  sec  2.33 GBytes  2.00 Gbits/sec    0             sender
 [SUM]   0.00-10.00  sec  2.32 GBytes  1.99 Gbits/sec                  receiver
 ```
 
-192.168.1.131 (Other) Multiprocess
+192.168.1.131 (VM-LAN) Multiprocess
 
 ```text
 [SUM]   0.00-10.00  sec   142 MBytes   119 Mbits/sec    0             sender
 [SUM]   0.00-10.00  sec   112 MBytes  93.6 Mbits/sec                  receiver
 ```
 
-192.168.1.207 (Host)
+#### vhost
+
+192.168.1.207 (VM-Host) Multiprocess
+
+```text
+[SUM]   0.00-10.00  sec  2.58 GBytes  2.22 Gbits/sec    0             sender
+[SUM]   0.00-10.00  sec  2.57 GBytes  2.21 Gbits/sec                  receiver
+```
+
+192.168.1.131 (VM-LAN) Multiprocess
+
+```text
+[SUM]   0.00-10.00  sec   134 MBytes   112 Mbits/sec    0             sender
+[SUM]   0.00-10.00  sec   113 MBytes  93.9 Mbits/sec                  receiver
+```
+
+### ping test result
+
+####  virtio
+
+192.168.1.207 (VM-Host)
 
 ```text
 --- 192.168.1.207 ping statistics ---
@@ -448,30 +528,16 @@ $ sudo taskset -p 0x78 $PID
 rtt min/avg/max/mdev = 0.140/0.162/0.183/0.020 ms
 ```
 
-192.168.1.131 (Host)
+192.168.1.131 (VM-LAN)
 
 ```text
 packets transmitted, 10 received, 0% packet loss, time 9247ms
 rtt min/avg/max/mdev = 0.579/0.718/0.848/0.100 ms
 ```
 
-#### Result - vhost
+#### vhost
 
-192.168.1.207 (Host) Multiprocess
-
-```text
-[SUM]   0.00-10.00  sec  2.58 GBytes  2.22 Gbits/sec    0             sender
-[SUM]   0.00-10.00  sec  2.57 GBytes  2.21 Gbits/sec                  receiver
-```
-
-192.168.1.131 (Other) Multiprocess
-
-```text
-[SUM]   0.00-10.00  sec   134 MBytes   112 Mbits/sec    0             sender
-[SUM]   0.00-10.00  sec   113 MBytes  93.9 Mbits/sec                  receiver
-```
-
-192.168.1.207 (Host)
+192.168.1.207 (VM-Host)
 
 ```text
 --- 192.168.1.207 ping statistics ---
@@ -479,16 +545,25 @@ rtt min/avg/max/mdev = 0.579/0.718/0.848/0.100 ms
 rtt min/avg/max/mdev = 0.127/0.154/0.223/0.033 ms
 ```
 
-192.168.1.131 (Host)
+192.168.1.131 (VM-LAN)
 
 ```text
 10 packets transmitted, 10 received, 0% packet loss, time 9218ms
 rtt min/avg/max/mdev = 0.535/0.616/0.781/0.075 ms`
 ```
 
+### Summary of experiment result
+
+| Network | Iperf (VM-Host) | Iperf (VM-Lan) | Ping (VM-Host) | Ping (VM-LAN) |
+| ------- | --------------- | -------------- | -------------- | ------------- |
+| virtio  | 1.99GB/s        | 93.6MB/s       | 0.020          | 0.100         |
+| vhost   | 2.21GB/s        | 93.9MB/s       | 0.033          | 0.075         |
+
+We can see that vhost network outperforms virtio network in terms of bandwidth. Their ping results are close
+
 ## Multi-Queue
 
-Assuming we have M queues. We should set 2M + 2 device vectors and use ethtool to create 2M length processes.
+According to the documents, assuming we have M queues. We should set 2M + 2 device vectors and use ethtool to create 2M length processes.
 
 ```bash
 # Must match -object,size= with -m and less than /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
@@ -506,10 +581,13 @@ $ sudo -E $(which qemu-system-x86_64) -serial stdio \
    -mem-prealloc -numa node,memdev=mem0 \
    -chardev socket,id=char0,path=/tmp/sock0,server=on \
    -netdev tap,type=vhost-user,id=vhost-user-0,chardev=char0,vhostforce=on,queues=4 \
-   -device virtio-net-pci,netdev=vhost-user-0,mq=on,vectors=10,id=net0,mac=00:00:00:00:00:01
+   -device virtio-net-pci,netdev=vhost-user-0,mq=on,vectors= 
+   ,id=net0,mac=00:00:00:00:00:01
 ```
 
 > See `qemu-multiqueue-start.sh`
+
+On guest OS, check the interrupts with following command
 
 ```bash
 (guest) $ ethtool -L ens7 combined 8
@@ -525,15 +603,17 @@ $ sudo -E $(which qemu-system-x86_64) -serial stdio \
  37:          0          0          0          0   PCI-MSI 114696-edge      virtio2-output.3
 ```
 
+> ens7 is the dpdk nic
+
 We can find 8 interrrupts of `virtio2-input` and `virtio2-output`.
 
-## Migration
+## Live Migration
 
 We want to migrate VM1 to VM2, so VM2 listen for incoming "PUSH" operation.
   
 In real-world scenario, the virtual disk is stored at a NFS shared path `$SHARED_PATH/centos_disk_0.img`, which is accessible for two hosts.
 
-Enable monitor on VM1(source)
+First, we launch VM1(source) with monitor enabled
 
 ```bash
 $ SHARED_PATH=.
@@ -557,12 +637,11 @@ $ sudo -E $(which qemu-system-x86_64) \
 
 > See `qemu-migrate-1-start.sh`
 
-Create ovs port for VM2
+Second, we create ovs port for VM2 with `ovs-vsctl`
 
 ```bash
 $ ovs-vsctl add-port br0 vhost-user-1 -- set Interface vhost-user-1 type=dpdkvhostuserclient options:vhost-server-path="/tmp/sock1"
 ```
-
 ```bash
 $ sudo ovs-vsctl show
 21306a7e-21cb-46d8-9e7c-d00575428e6c
@@ -582,13 +661,15 @@ $ sudo ovs-vsctl show
     ovs_version: "2.16.0"
 ```
 
-Increase hugeage size:
+We also increase hugeage size:
 
 ```bash
 $ echo 8192 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
 ```
 
-Start VM2:
+> This might not be neccessary since only 1 VM is running at any time, the other one is paused.
+
+Start VM2 with `-incoming` option:
 
 ```bash
 $ SHARED_PATH=.
@@ -615,10 +696,10 @@ $ sudo -E $(which qemu-system-x86_64) \
 
 > When running experiment on a single machine, we cannot mount one qemu disk image to multiple qemu processes. Therefore a dummy disk image `centos_disk_dummy.img` is created. The disk is empty so VM2 will not boot at this point. In real-world scenario, NFS storage should be used
 
-In VM1's monitor, run:
+VM2 will pause. In VM1's monitor, run:
 
 ```bash
-(qemu) migrate tcp:$IP:6666
+(qemu) migrate tcp:$IP:16666
 ```
 
 After a while, we should be able to connect to VM2 via `ssh -p 10123 localhost`. The system is migrated
