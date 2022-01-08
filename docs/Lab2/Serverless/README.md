@@ -1,14 +1,48 @@
 # Serverless
 
-Environment: Ubuntu 20.04LTS
 
-Platform: Windows Hyper-V, x86_64
+- [Serverless](#serverless)
+  - [Introduction](#introduction)
+  - [Getting OpenWhisk ready](#getting-openwhisk-ready)
+    - [Install Docker](#install-docker)
+      - [Install JAVA](#install-java)
+      - [Install NodeJS, NPM](#install-nodejs-npm)
+    - [Get OpenWhisk source code and Configure](#get-openwhisk-source-code-and-configure)
+      - [Trouble shooting: Cannot connect to docker daemon due to privillege](#trouble-shooting-cannot-connect-to-docker-daemon-due-to-privillege)
+    - [Get OpenWhisk CLI](#get-openwhisk-cli)
+    - [Launch OpenWhisk](#launch-openwhisk)
+    - [Verify OpenWhisk Installation](#verify-openwhisk-installation)
+  - [Deploy MinIO, an Open-source Object Storage Service](#deploy-minio-an-open-source-object-storage-service)
+  - [Deploy ML Applications](#deploy-ml-applications)
+    - [Train the Model](#train-the-model)
+    - [Convert the model to ONNX](#convert-the-model-to-onnx)
+    - [Wrap the ML model as a WebApp](#wrap-the-ml-model-as-a-webapp)
+    - [The app](#the-app)
+    - [Create Docker Image for this ML application](#create-docker-image-for-this-ml-application)
+  - [Configure OpenWhisk docker action](#configure-openwhisk-docker-action)
+    - [Creating OpenWhisk API](#creating-openwhisk-api)
+  - [Summary](#summary)
+  - [Appendix - Convenient setup script](#appendix---convenient-setup-script)
+## Introduction
+
+The goal of this project is to deploy a ML inference app on Openwhisk. The app can be viewed as a function
+
+$$
+\mathtt{Result} = Infer(\mathtt{image})
+$$
+
+Under the Openwhisk limit, the image should be passed to funtion in URL.
+
+The experiment setting is as follows
+
+- Environment: Ubuntu 20.04LTS
+- Platform: Windows Hyper-V, x86_64
 
 > The IP address of target VM is `192.168.1.82`
 
 ## Getting OpenWhisk ready
 
-In this step, we deploy a **standalone** openwhisk stack on target machine.
+In this section, we deploy a **standalone** openwhisk stack on target machine.
 
 ### Install Docker
 
@@ -31,20 +65,22 @@ $ sudo systemctl daemon-reload
 $ sudo systemctl restart docker
 ```
 
-### Install JAVA
+#### Install JAVA
 
 ```bash
 $ sudo apt-get install openjdk-11-jdk
 ```
 
-### Install NodeJS, NPM
+#### Install NodeJS, NPM
 
 ```bash
 $ sudo apt-get install nodejs
 $ sudo apt-get install npm
 ```
 
-## Get OpenWhisk source code and Configure
+### Get OpenWhisk source code and Configure
+
+You will find OpenWhisk's source code on Github. We clone the code and build it with gradlew.
 
 ```bash
 $ git clone --recursive https://github.com/apache/openwhisk.git
@@ -52,15 +88,7 @@ $ cd openwhisk
 $ ./gradlew core:standalone:build
 ```
 
-## Deploy OpenWhisk
-
-Simply use gradle to build OpenWhisk
-
-```bash
-$ ./gradlew core:standalone:build
-```
-
-### Trouble shooting: Cannot connect to docker daemon due to privillege
+#### Trouble shooting: Cannot connect to docker daemon due to privillege
 
 ```bash
 $ sudo usermod -aG docker $USER 
@@ -102,6 +130,8 @@ $ tar -xzvf OpenWhisk_CLI-1.2.0-linux-amd64.tgz
 $ mv wsk /usr/local/bin/
 ```
 
+> The `amd64` postfix should be replaced with proper platfrom
+
 ### Launch OpenWhisk
 
 After the build process has finished, launch openwhisk using `java -jar`:
@@ -110,11 +140,11 @@ After the build process has finished, launch openwhisk using `java -jar`:
 $ java -jar ./bin/openwhisk-standalone.jar
 ```
 
-> This is a foreground task
+> This is a foreground task, do not close the terminal or the OpenWhisk will stop
 
 ![OpenWhisk](img/1.png)
 
-Credential of our OpenWhisk instance is printed to `stdout` (as highlighted in the picture above)
+Credential of our OpenWhisk instance is printed to `stdout` (as highlighted in the picture above). Use this credential to setup `wsk` cli.
 
 ```bash
 $ wsk property set --apihost 'http://172.17.0.1:3233' --auth '23bc46b1-71f6-4ed5-8c54-816aa4f8c502:123zO3xZCLrMN6v2BKK1dXYFpXlPkccOFqm12CdAsMgRU4VrNZ9lyGVCGuMDGIwP'
@@ -148,7 +178,7 @@ $ wsk action invoke helloworld --result
 
 ## Deploy MinIO, an Open-source Object Storage Service
 
-To store pictures of handwritten digits, we need some sort of storage services. The `MinIO` server is a decent choice.
+To store pictures of handwritten digits, we need some sort of storage services. The `MinIO` server is a decent choice. It's an object storage that support url sharing.
 
 ```bash
 $ docker run \
@@ -336,10 +366,8 @@ OpenWhisk support Docker actions, but has several limits. According to [OpenWhis
 
 We come up with the following Dockerfile to build our custom ML image:
 
-- The image is based on ubuntu base image
-- It downloads and install conda
-- It creates a virtual environment named `mnist`
-- It installs flask, pytorch in `mnist` envrionment
+- The image is based on python:3.8.8-slim to reduce size
+- It installs flask, pytorch and other neccessary packages
 - It launches our flask ML application
 
 ```Dockerfile
@@ -369,21 +397,21 @@ CMD ["/bin/bash", "-c", "python /opt/app/deploy-flask.py"]
 We build the image using this command:
 
 ```bash
-docker build . -t python3action-mnist
+$ docker build . -t python3action-mnist
 ```
 
 Test run:
 
 ```bash
-docker run -it --rm --net=host python3action-mnist
+$ docker run -it --rm --net=host python3action-mnist
 ```
 
 OpenWhisk docker actions requires docker image to be public, therefore we need to push our image to docker hub:
 
 ```bash
-docker tag python3action-mnist $USER_NAME/python3action-mnist:1.0
-docker login
-docker push $USER_NAME/python3action-mnist:1.0
+$ docker tag python3action-mnist $USER_NAME/python3action-mnist:1.0
+$ docker login
+$ docker push $USER_NAME/python3action-mnist:1.0
 ```
 
 > It is extremely dangerous to store credentials in python script. Consider using environment variables to store access_key and secret_key
@@ -411,19 +439,19 @@ $ curl -X POST -d '{"value":{"url": "http://192.168.1.82:9000/mnist/test_picture
 
 ## Configure OpenWhisk docker action
 
-Create
+Create action by:
 
 ```bash
-wsk action create mnist --docker natrium233/python3action-mnist:1.0
+$ wsk action create mnist --docker natrium233/python3action-mnist:1.0
 ```
 
-Update
+If the action is created, use the following command to update
 
 ```bash
-wsk action update mnist --docker natrium233/python3action-mnist:1.2
+$ wsk action update mnist --docker natrium233/python3action-mnist:1.2
 ```
 
-Invoke
+Invoke action with following command
 
 ```bash
 $ wsk action invoke mnist --result --param url "http://192.168.1.82:9000/mnist/test_picture.png"
@@ -476,7 +504,7 @@ $ curl -X POST -d '{"url":"http://192.168.1.82:9000/mnist/test_picture.png"}' -H
 
 Once firewall rules are configured, this service will be externally accessiable.  
 
-## Workflow summary
+## Summary
 
 The workflow of using his ML service is:
 
