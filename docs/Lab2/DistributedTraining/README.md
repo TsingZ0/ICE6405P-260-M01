@@ -6,12 +6,12 @@
     - [The Parameter Server](#the-parameter-server)
     - [The Docker Contained Worker](#the-docker-contained-worker)
   - [Preparing Dataset](#preparing-dataset)
-    - [2.1. <a name='Explanation'></a>Explanation](#21-explanation)
+    - [Explanation](#explanation)
     - [Summary of urls](#summary-of-urls)
   - [Training](#training)
     - [API test with curl](#api-test-with-curl)
   - [Build Docker Image](#build-docker-image)
-  - [3. <a name='ConfigureOpenWhisk'></a>Configure OpenWhisk](#3-configure-openwhisk)
+  - [Configure OpenWhisk](#configure-openwhisk)
   - [Changing server configuration](#changing-server-configuration)
   - [Summary](#summary)
 
@@ -128,7 +128,7 @@ First, we split mnist dataset into 6 parts. A `dataset_dl` module is organized a
             └── train-labels-idx1-ubyte.gz
 ```
 
-###  2.1. <a name='Explanation'></a>Explanation
+### Explanation
 
 The `__init__.py` import dataset object from`__dataset__.py`
 
@@ -236,7 +236,6 @@ curl -X POST \
 
 The training loop should start. And we can observe client activities from server side
 
-
 ## Build Docker Image
 
 After local test is completed. We construct the docker image in which the worker runs
@@ -261,7 +260,7 @@ $ docker tag python3action-dist-train-mnist natrium233/python3action-dist-train-
 $ docker push natrium233/python3action-dist-train-mnist:1.0  
 ```
 
-##  3. <a name='ConfigureOpenWhisk'></a>Configure OpenWhisk
+## Configure OpenWhisk
 
 Create OpenWhisk action
 
