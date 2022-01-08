@@ -1,0 +1,11 @@
+minio
+pillow
+tqdm
+flask
+gevent
+requests
+onnx
+onnxruntime
+pytorch
+torchvision
+torchaudio

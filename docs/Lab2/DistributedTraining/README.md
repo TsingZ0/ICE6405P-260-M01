@@ -311,6 +311,12 @@ c35b1fee108c   wsk0_14_guest_disttrain    33.04%    166.5MiB / 256MiB     65.04%
 15e384116b43   wsk0_16_prewarm_nodejs14   0.00%     10.39MiB / 256MiB     4.06%     3.28kB / 0B       401kB / 0B       8
 ```
 
+When creating action, you can use `--memory` to limit the maximum memory a function can use, this value is `256MB` by default
+
+```bash
+wsk action create dist-train --docker natrium233/python3action-dist-train-mnist:1.0 --web true --timeout 300000 --memory 512
+```
+
 ## Summary
 
 The 4GB virtual machine I created have 2.5GiB of free memory at idle stat. But since each activation consumes 33% of CPU, the virtual machine can only hold up to 3 workers at one time
