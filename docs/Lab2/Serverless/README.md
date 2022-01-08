@@ -1,6 +1,5 @@
 # Serverless
 
-
 - [Serverless](#serverless)
   - [Introduction](#introduction)
   - [Getting OpenWhisk ready](#getting-openwhisk-ready)
@@ -23,6 +22,7 @@
     - [Creating OpenWhisk API](#creating-openwhisk-api)
   - [Summary](#summary)
   - [Appendix - Convenient setup script](#appendix---convenient-setup-script)
+
 ## Introduction
 
 The goal of this project is to deploy a ML inference app on Openwhisk. The app can be viewed as a function
@@ -334,10 +334,10 @@ $ curl -X POST -d '{"value":{"url":"http://192.168.1.82:9000/mnist/test_picture.
 2. Get image from url
 3. Generate prediction
 
-|Name|Type|Description|Example|
-|---|---|---|---|
-|`bucket_name`|str|Name of the bucket|`"mnist"`|
-|`object_name`|str|Name of the object|`"082d97b2-19f1-11ec-a558-1e00d10c4441.png"`|
+| Name          | Type | Description        | Example                                      |
+| ------------- | ---- | ------------------ | -------------------------------------------- |
+| `bucket_name` | str  | Name of the bucket | `"mnist"`                                    |
+| `object_name` | str  | Name of the object | `"082d97b2-19f1-11ec-a558-1e00d10c4441.png"` |
 
 These information can be obtained from `upload()` function.
 

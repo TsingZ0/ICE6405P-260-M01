@@ -16,3 +16,32 @@ Place data set to `./data`
         ├── train-images-idx3-ubyte
         └── train-labels-idx1-ubyte
 ```
+
+## How to build and deploy
+
+Only `deploy-flask.py`, `model.onnx` are needed for deployment. See the Dockerfile for details. But in general `docker build .` should work.
+
+## Files
+
+### requirements.txt
+
+Packages required to run this project
+
+### train.py
+
+Script to train the network
+
+### model.py
+
+Defines a LeNet5 network
+
+### export_onnex.py
+
+Export a trained LeNet45 model to onnx format
+### deploy-flask.py
+
+This is the main app. To run the app, execute
+
+```console
+python deploy-flask.py
+```
