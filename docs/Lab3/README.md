@@ -1,5 +1,28 @@
 # FedAvg
 
+- [FedAvg](#fedavg)
+  - [Preface](#preface)
+  - [Non-IID dataset generation](#non-iid-dataset-generation)
+    - [Code explanation](#code-explanation)
+  - [Singal thread Emulator](#singal-thread-emulator)
+    - [Code explanation](#code-explanation-1)
+      - [Client design](#client-design)
+      - [Server design](#server-design)
+    - [Impact of number of clients on accuracy](#impact-of-number-of-clients-on-accuracy)
+    - [Experimental results](#experimental-results)
+  - [Optimizing communication](#optimizing-communication)
+    - [System design](#system-design)
+      - [Server design](#server-design-1)
+      - [Client design](#client-design-1)
+    - [Abstraction of shared memory](#abstraction-of-shared-memory)
+    - [Server Class](#server-class)
+    - [Client Class](#client-class)
+    - [Experiment scripts](#experiment-scripts)
+      - [server_para.py](#server_parapy)
+      - [client_para.py](#client_parapy)
+      - [Helper functions](#helper-functions)
+    - [Experimental results](#experimental-results-1)
+
 ## Preface
 
 In this project we realize a FedAvg algorithm
@@ -63,7 +86,7 @@ def break_into(n,m) -> List[List[int]]:
 
 > See `gen_mnist_pathological.py` and `gen_mnist_realworld.py`  for details
 
-### Explanation
+### Code explanation
 
 With the help of two scripts, the MNIST is converted to serialized pkl objects. They are stored at `./export_{dataset_type}/mnist_{n_client}/client_{id}.pkl` Each dataset file can be deserialized to a python dictionary:
 
@@ -142,7 +165,7 @@ The script relies on `fedsim` package. The packes contains
 - `bundle_parameter` bundle server parameter
 - `partition` partition function
 
-### Intepretation of code
+### Code explanation
 
 To accelerate training, multi-threading is used. During simulation, multiple client backend are created. A backend can be shared by multiple client. A thread pool in which the number of worker is decided by number of backend will apply trainning funciton on each client in parallel.
 
@@ -393,7 +416,7 @@ class ServerSim(object):
         return None
 ```
 
-## Impact of number of clients on accuracy
+### Impact of number of clients on accuracy
 
 In this experiment, we study the effect of number of clients on model accuracy.
 
@@ -445,7 +468,9 @@ We first define some signals
 
 > See `fedpara/config.py` for details.
 
-### Server design
+### System design
+
+#### Server design
 
 - We Use `mmap` shared memory to share parameters / variables
 - Each client has an unique id
@@ -455,7 +480,7 @@ We first define some signals
 - Server set signal to `SIG_S_BUSY`. Then, Server pull client paramters via `/tmp/fedavg_client_{id}_params.mmap` and client info (length of dataset) via `/tmp/fedavg_client_{id}_info.mmap`
 - Server calculates the averaged parameters and publish this paramter to shared memory. Then, Server publishes signal `SIG_S_READY` to all clients.
 
-### Client design
+#### Client design
 
 - Client watch for signal from Server. When it turns to `SIG_S_READY`, Client will pull parameters from server via `/tmp/fedavg_server_params.mmap`
 - Client set signal to `SIG_C_BUSY`
@@ -934,7 +959,7 @@ if __name__ == '__main__':
     # - n_epochs: int default to 1
 ```
 
-### client_para.py
+#### client_para.py
 
 This script will initialize a client, connect client to server and start parallel trainning. The client can be shutdown from server side.
 
@@ -1056,7 +1081,7 @@ if __name__ == '__main__':
 
 ```
 
-### Helper functions
+#### Helper functions
 
 A set of helper functions are created
 
@@ -1094,7 +1119,7 @@ Summary of requirements:
 - `torchvision`
 - `tqdm`
 
-### Experiment
+### Experimental results
 
 As shown in the figure, the clients can fetch server parameters in parallel.
 
