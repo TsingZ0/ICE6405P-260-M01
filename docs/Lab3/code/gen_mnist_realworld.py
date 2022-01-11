@@ -16,7 +16,7 @@ if __name__ == '__main__':
 
     if not os.path.exists(export_dir):
         os.mkdir(export_dir)
-        
+
     for client_id in range(n_client):
         stimulis_tmp = torch.cat([
             res_stimulis_all[patch_idx * patch_sz:(patch_idx + 1) * patch_sz, ...] for patch_idx in data_assignment[client_id]

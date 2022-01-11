@@ -16,13 +16,13 @@ if __name__ == '__main__':
     data_assignment: List[int] = list(range(n_patches))
     random.shuffle(data_assignment)
     export_dir = f'./export_pathological/mnist_{n_client}'
-    
+
     if not os.path.exists(export_dir):
         os.mkdir(export_dir)
 
     for client_id in range(n_client):
         patch_idx_1 = data_assignment[client_id * 2]
-        patch_idx_2 = data_assignment[client_id * 2  + 1]
+        patch_idx_2 = data_assignment[client_id * 2 + 1]
 
         stimulis_tmp = torch.cat([
             res_stimulis_all[patch_idx_1 * patch_sz:(patch_idx_1 + 1) * patch_sz, ...],

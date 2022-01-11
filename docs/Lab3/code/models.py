@@ -2,22 +2,23 @@ import torch
 import torch.nn as nn
 from typing import Union, Callable, Any
 
+
 class LeNet5(torch.nn.Module):
     INPUT_HEIGHT: int = 28
     INPUT_WIDTH: int = 28
+
     def __init__(self, *args, **kwargs):
         super().__init__()
 
         # Defining LeNet layers
-        self.conv1 = torch.nn.Conv2d(in_channels=1, out_channels=6, kernel_size=(5,5), padding=(2,2))
+        self.conv1 = torch.nn.Conv2d(in_channels=1, out_channels=6, kernel_size=(5, 5), padding=(2, 2))
         self.maxp1 = torch.nn.MaxPool2d(kernel_size=(2, 2))
-        self.conv2 = torch.nn.Conv2d(in_channels=6, out_channels=16, kernel_size=(5,5))
+        self.conv2 = torch.nn.Conv2d(in_channels=6, out_channels=16, kernel_size=(5, 5))
         self.maxp2 = torch.nn.MaxPool2d(kernel_size=(2, 2))
 
-        self.d1 = torch.nn.Linear(16*5*5, 120)
+        self.d1 = torch.nn.Linear(16 * 5 * 5, 120)
         self.d2 = torch.nn.Linear(120, 84)
         self.d3 = torch.nn.Linear(84, 10)
-
 
     def forward(self, x):
         batch_sz = x.shape[0]
@@ -32,7 +33,8 @@ class LeNet5(torch.nn.Module):
         x = self.d3(x)
         # x = torch.softmax(self.d3(x), 0)
         return x
-    
+
+
 class ModelABC(LeNet5):
     def __init__(self, filter_fn: Union[None, Callable[[torch.Tensor], torch.Tensor]] = None):
         super().__init__(filter_fn=filter_fn)
