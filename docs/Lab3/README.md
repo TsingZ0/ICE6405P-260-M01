@@ -1,10 +1,113 @@
 # FedAvg
 
-## Realize a FedAvg algorithm
+## Preface
+
+In this project we realize a FedAvg algorithm
 
 ![Communication-Efficient Learning of Deep Networks from Decentralized Data - Algorithm 1](./img/FedAvg.png)
 
-### Idea - Singal thread Emulator
+## Non-IID dataset generation
+
+We designed two functions `sort_mnist()` `break_into()` to split MNIST dataset into pathological and realworld datasets.
+
+```python
+def sort_mnist() -> Tuple[torch.Tensor, torch.Tensor]:
+    dataset = torchvision.datasets.MNIST('./data/',
+                                     train=True,
+                                     download=True,
+                                     transform=torchvision.transforms.Compose([
+                                         torchvision.transforms.ToTensor(),
+                                         torchvision.transforms.Normalize((0.1307, ), (0.3081, ))
+                                     ]))
+    res_stimulis: torch.Tensor = torch.zeros(size=(10, 7000, 1, 28, 28), dtype=torch.float32)
+    res_labels: torch.Tensor = torch.zeros(size=(10, 7000), dtype=torch.float32)
+    res_index: torch.Tensor = torch.zeros(size=(10,),dtype=torch.int64)
+    dataloader = torch.utils.data.DataLoader(dataset, shuffle=True)
+
+    with tqdm.tqdm(dataset) as pbar:
+        for item in dataset:
+            label = item[1]
+            res_stimulis[label, res_index[label],:,:,:] = item[0]
+            res_labels[label, res_index[label]] = label
+            res_index[label] += 1
+            pbar.update()
+
+    res_stimulis_all: torch.Tensor = torch.cat([res_stimulis[idx, 0:res_index[idx],...] for idx in range(10)])
+    res_labels_all: torch.Tensor = torch.cat([res_labels[idx, 0:res_index[idx],...] for idx in range(10)]).to(torch.int64)
+
+    return res_stimulis_all, res_labels_all
+
+def break_into(n,m) -> List[List[int]]:
+    """
+    return m random integers with sum equal to n 
+    """
+    distribution = [1 for i in range(m)]
+
+    for i in range(n-m):
+        ind = random.randint(0,m-1)
+        distribution[ind] += 1
+
+    index = [i for i in range(n)]
+    random.shuffle(index)
+
+    res = [[] for i in range(m)]
+    tmp: int = 0
+    for idx, bin in enumerate(distribution):
+        res[idx] += index[tmp: tmp + bin]
+        tmp += bin
+
+    return res
+```
+
+`gen_mnist_pathological.py` is created in order to generate pathological dataset, with `gen_mnist_realworld.py` created to generate realworld dataset.
+
+> See `gen_mnist_pathological.py` and `gen_mnist_realworld.py`  for details
+
+### Explanation
+
+With the help of two scripts, the MNIST is converted to serialized pkl objects. They are stored at `./export_{dataset_type}/mnist_{n_client}/client_{id}.pkl` Each dataset file can be deserialized to a python dictionary:
+
+```python
+{
+    "stimulis": torch.Tensor(size=(n,1,28,28), dtype=float32),
+    "labels":torch.Tensor(size=(n,1), dtype=int64)
+}
+```
+
+For example the realworld dataset for the 2nd client in a 10 client simulation is `./export_realworld/mnist_10/client_2.pkl`
+
+To read this dataset, an `MNIST_NonIID` class is created.
+
+```python
+"""mnist_noniid_dataset.py
+"""
+import torch
+from torch.utils.data import Dataset
+import pickle
+from typing import Any
+
+class MNISTNonIID(Dataset):
+    stimulis: torch.Tensor = None
+    labels: torch.Tensor = None
+    length: int = 0
+    def __init__(self, path_to_pkl: str) -> None:
+        super().__init__()
+        with open(path_to_pkl, 'rb') as f:
+            data = pickle.load(f)
+
+        self.stimulis = data['stimulis']
+        self.labels = data['labels']
+        self.length = len(self.stimulis)
+    def __len__(self):
+        return self.length
+    
+    def __getitem__(self, index) -> Any:
+        return self.stimulis[index,...], self.labels[index]
+```
+
+In the `__init__` method, the Dataset class load data with pickle, a popular serialization library. The dataset class is designed to be coherent with `torch.utils.data.Dataset`
+
+## Singal thread Emulator
 
 Follow the paper, we can easily come up with pseudo code
 
@@ -29,20 +132,73 @@ for loop in range(N_LOOP):
 
 After some work with PyTorch, we can soon finish our training script.
 
+> see `run_sim.py`
+
+The script relies on `fedsim` package. The packes contains
+
+- `ClientSimBackend` Backend for client simulator
+- `ClientSim` client simulator
+- `ServerSim` server simulator
+- `bundle_parameter` bundle server parameter
+- `partition` partition function
+
+### Intepretation of code
+
+To accelerate training, multi-threading is used. During simulation, multiple client backend are created. A backend can be shared by multiple client. A thread pool in which the number of worker is decided by number of backend will apply trainning funciton on each client in parallel.
+
+> Python's multi-threading cannot run multiple thread at same time due to GIL lock. However, we are in the case of CUDA computing. In CUDA computing, the CPU waits for a period of time after starting CUDA tasks then retrieve results from GPU. We can make use of this period to start tasks on other GPUs
+
+#### Client design
+
+The `ClientSim` class is an abstraction of client. It is benifited from many python features:
+
+- `client.__len__` is overided so that `len(client)` will return the length of dataset assigned
+- setting `client.new_parameter = value` attribute is actually setting `client.backend.new_parameter  = value` which is actually setting `client.backend.net.load_state_dict(value)`
+- `client.parameters` will return `client.backedn.net.state_dict()`
+- `client(dataset)` will immediately start training with `dataset`
+
 ```python
-"""run_sim.py
-"""
-...
-def train_async(client: ClientSim, server_params: Dict[str, torch.Tensor],
-                dataset: Dataset) -> Tuple[float, Dict[str, torch.Tensor]]:
-    logging.info(f'Training client {client.id}')
-    client.new_parameters = server_params
-    # Each client train its parameter with local data
-    client(dataset)
-    # Server collects new parameter from clients
-    return len(client), client.parameters
+class ClientSim(object):
+    def __init__(self, id: int, backend: ClientSimBackend, n_epochs: int, batch_sz: int, lr: float, criterion: nn.Module,
+                 optim: torch.optim.Optimizer) -> None:
+        super().__init__()
+        self.id: int = id
+        self.backend: ClientSim = backend
+        self.n_epochs: int = n_epochs
+        self.batch_sz: int = batch_sz
+        self.lr: float = lr
+        self.criterion: Callable = criterion
+        self.optim: torch.optim.Optimizer = optim
+        self.length: int = 0
 
+    def __repr__(self) -> str:
+        return f'<class: {ClientSim}, id: {self.id}, device:{self.backend.device}'
 
+    @property
+    def device(self) -> torch.device:
+        return self.backend.device
+    
+    @property
+    def parameters(self) -> Dict[str, torch.Tensor]:
+        return self.backend.parameters
+
+    def __call__(self, dataset: Dataset) -> Any:
+        self.length = len(dataset)
+
+        return self.backend(dataset, self.n_epochs, self.batch_sz, self.lr, self.criterion, self.optim)
+
+    def __len__(self):
+        return self.length
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name == 'new_parameters':
+            self.backend.new_parameters = value
+        return super().__setattr__(name, value)
+```
+
+As you can see, the `__call__` method actually calls the backend, which is a ClientSimBackend object. The `ClientSimBackend` class handles gradient descent training loop. It is created per device (e.g. a 4 GPU machine should create 4 ClientSimBackend instance). While clients can be created on demand:
+
+```python
 def main(args: argparse.Namespace):
     # Initialize server
     server = ServerSim(LeNet5(), device=torch.device(args.s_device))
@@ -58,12 +214,22 @@ def main(args: argparse.Namespace):
                   batch_sz=args.batch_sz,
                   lr=args.lr,
                   criterion=torch.nn.functional.cross_entropy,
-                  optim=torch.optim.SGD) for idx in range(args.world_sz)
+                  optim=torch.optim.Adam) for idx in range(args.world_sz)
     ]
         # Initialize dataset classes
     client_datasets = [
         MNISTNonIID(f'./export_{args.dataset_type}/mnist_{args.world_sz}/client_{idx}.pkl', device=clients[idx].device) for idx in range(args.world_sz)
     ]
+
+```
+
+`backend=client_backends[idx % len(client_backends)]` guarantees that clients are assigned to their backend evenly.
+
+In simulation, a threadpool is created to run simulation more efficiently. The train task are submitted to this threadpool in batch.
+
+```python
+    ...
+    n_threads = len(client_backends)
 
     # Loop for n_sim times
     for sim_idx in range(1, args.n_sim + 1):
@@ -71,8 +237,8 @@ def main(args: argparse.Namespace):
         server_params = server.parameters
         with tqdm.tqdm(range(args.world_sz), nrows=2) as pbar:
             # Slice clients and cilent_datasets to len(client_backends)
-            for batch_clients, batch_dataset in zip(partition(clients, len(client_backends)),
-                                                    partition(client_datasets, len(client_backends))):
+            for batch_clients, batch_dataset in zip(partition(clients, n_threads),
+                                                    partition(client_datasets, n_threads)):
                 # Each client train seperately using threadpool
                 executor = ThreadPoolExecutor(max_workers=len(client_backends))
                 tasks = [
@@ -91,78 +257,9 @@ def main(args: argparse.Namespace):
         server()
         test(str(args.world_sz), sim_idx, server.net, server.device)
 
-
-def test(text: str, epoch_idx: int, net: nn.Module, device: torch.device = torch.device('cpu')) -> None:
-    """Server tests model with the emtire dataset
-
-    Args:
-        net (nn.Module): Network
-        device (torch.device, optional): Device to test model. Defaults to torch.device('cpu').
-    """
-    BATCH_SZ_TEST: int = 16
-
-    net.to(device)
-    net.eval()
-
-    test_loader = DataLoader(MNIST('./data/',
-                                   train=False,
-                                   download=True,
-                                   transform=torchvision.transforms.Compose([
-                                       torchvision.transforms.ToTensor(),
-                                       torchvision.transforms.Normalize((0.1307, ), (0.3081, ))
-                                   ])),
-                             batch_size=BATCH_SZ_TEST,
-                             shuffle=True)
-
-    acc_cnt: int = 0
-    tot_cnt: int = 1e-5
-
-    with tqdm.tqdm(range(len(test_loader))) as pbar:
-        for batch_idx, (stimulis, label) in enumerate(test_loader):
-            pred = net(stimulis.to(device))
-            pred_decoded = torch.argmax(pred, dim=1)
-            acc_cnt += (pred_decoded == label.to(device)).sum().detach().cpu().numpy()
-            tot_cnt += pred_decoded.size(0)
-            pbar.set_description("acc:{}".format(acc_cnt / tot_cnt))
-            pbar.update(1)
-
-    with open(f'./logs/log_sim_n:{text}.txt', 'a+') as f:
-        f.write(f'{epoch_idx},{acc_cnt / tot_cnt}\n')
-
-
-if __name__ == '__main__':
-    # mp.set_start_method('spawn')
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--world_sz', type=int, help='Number of clients')
-    parser.add_argument('--n_sim', type=int, default=1, help='Number of simulation loops')
-    parser.add_argument('--s_device', type=str, default='cpu', help='Device to put server parameters')
-
-    parser.add_argument('--n_epochs', type=int, default=1, help='Number of loops on client side')
-    parser.add_argument('--dataset_type', type=str, default='pathological', help='pathological | realworld')
-    parser.add_argument('--lr', type=float, default=1e-4, help="Learning rate")
-    parser.add_argument('--batch_sz', type=int, default=32, help="Batch size")
-    parser.add_argument('--c_device', type=str, default='cpu', help="Device to put client parameters")
-    parser.add_argument('--n_multiplex', type=int, default=1, help="Reuse gpu for multiple client")
-
-    args = parser.parse_args()
-    # Run main with asyncio
-    main(args)
 ```
 
-### Intepretation
-
-To accelerate training, multi-threading is used. During simulation, multiple client backend are created. A backend can be shared by multiple client. A thread pool in which the number of worker is decided by number of backend will apply trainning funciton on each client in parallel.
-
-> Python's multi-threading cannot run multiple thread at same time due to GIL lock. However, we are in the case of CUDA computing. In CUDA computing, the CPU waits for a period of time after starting CUDA tasks then retrieve results from GPU. We can make use of this period to start tasks on other GPUs
-
-### Client design
-
-The `ClientSim` class is an abstraction of client. It is benifited from many python features:
-
-- `client.__len__` is overided so that `len(client)` will return the length of dataset assigned
-- setting `client.new_parameter = value` attribute is actually setting `client.backend.new_parameter  = value` which is actually setting `client.backend.net.load_state_dict(value)`
-- `client.parameters` will return `client.backedn.net.state_dict()`
-- `client(dataset)` will immediately start training with `dataset`
+To avoid the scenario where multiple client try to access one backend. The ClientSimBackend has self.lock attribute to make sure that it is only access by one thread at a time.
 
 ```python
 class ClientSimBackend(object):
@@ -236,47 +333,9 @@ class ClientSimBackend(object):
             self.lock.release()
             
         return super().__setattr__(name, value)
-
-
-class ClientSim(object):
-    def __init__(self, id: int, backend: ClientSimBackend, n_epochs: int, batch_sz: int, lr: float, criterion: nn.Module,
-                 optim: torch.optim.Optimizer) -> None:
-        super().__init__()
-        self.id: int = id
-        self.backend: ClientSim = backend
-        self.n_epochs: int = n_epochs
-        self.batch_sz: int = batch_sz
-        self.lr: float = lr
-        self.criterion: Callable = criterion
-        self.optim: torch.optim.Optimizer = optim
-        self.length: int = 0
-
-    def __repr__(self) -> str:
-        return f'<class: {ClientSim}, id: {self.id}, device:{self.backend.device}'
-
-    @property
-    def device(self) -> torch.device:
-        return self.backend.device
-    
-    @property
-    def parameters(self) -> Dict[str, torch.Tensor]:
-        return self.backend.parameters
-
-    def __call__(self, dataset: Dataset) -> Any:
-        self.length = len(dataset)
-
-        return self.backend(dataset, self.n_epochs, self.batch_sz, self.lr, self.criterion, self.optim)
-
-    def __len__(self):
-        return self.length
-
-    def __setattr__(self, name: str, value: Any) -> None:
-        if name == 'new_parameters':
-            self.backend.new_parameters = value
-        return super().__setattr__(name, value)
 ```
 
-### Server design
+#### Server design
 
 The `ServerSim` class is an abstraction of server. It is benifited from many python features:
 
@@ -332,177 +391,6 @@ class ServerSim(object):
     def __setitem__(self, key: Hashable, value: Any) -> None:
         self.cached_params.append([key, value])
         return None
-
-```
-
-## Non-IID dataset
-
-We designed two functions `sort_mnist()` `break_into()` to split MNIST dataset into pathological and realworld datasets.
-
-```python
-def sort_mnist() -> Tuple[torch.Tensor, torch.Tensor]:
-    dataset = torchvision.datasets.MNIST('./data/',
-                                     train=True,
-                                     download=True,
-                                     transform=torchvision.transforms.Compose([
-                                         torchvision.transforms.ToTensor(),
-                                         torchvision.transforms.Normalize((0.1307, ), (0.3081, ))
-                                     ]))
-    res_stimulis: torch.Tensor = torch.zeros(size=(10, 7000, 1, 28, 28), dtype=torch.float32)
-    res_labels: torch.Tensor = torch.zeros(size=(10, 7000), dtype=torch.float32)
-    res_index: torch.Tensor = torch.zeros(size=(10,),dtype=torch.int64)
-    dataloader = torch.utils.data.DataLoader(dataset, shuffle=True)
-
-    with tqdm.tqdm(dataset) as pbar:
-        for item in dataset:
-            label = item[1]
-            res_stimulis[label, res_index[label],:,:,:] = item[0]
-            res_labels[label, res_index[label]] = label
-            res_index[label] += 1
-            pbar.update()
-
-    res_stimulis_all: torch.Tensor = torch.cat([res_stimulis[idx, 0:res_index[idx],...] for idx in range(10)])
-    res_labels_all: torch.Tensor = torch.cat([res_labels[idx, 0:res_index[idx],...] for idx in range(10)]).to(torch.int64)
-
-    return res_stimulis_all, res_labels_all
-
-def break_into(n,m) -> List[List[int]]:
-    """
-    return m random integers with sum equal to n 
-    """
-    distribution = [1 for i in range(m)]
-
-    for i in range(n-m):
-        ind = random.randint(0,m-1)
-        distribution[ind] += 1
-
-    index = [i for i in range(n)]
-    random.shuffle(index)
-
-    res = [[] for i in range(m)]
-    tmp: int = 0
-    for idx, bin in enumerate(distribution):
-        res[idx] += index[tmp: tmp + bin]
-        tmp += bin
-
-    return res
-```
-
-### gen_mnist_pathological.py
-
-```python
-"""gen_mnist_pathological.py
-"""
-import torch
-import random
-from typing import List
-import pickle
-import sys, os
-from helpers import sort_mnist
-
-if __name__ == '__main__':
-    n_client: int = int(sys.argv[1]) if len(sys.argv) > 1 else 10
-
-    res_stimulis_all, res_labels_all = sort_mnist()
-    n_patches: int = n_client * 2
-    patch_sz = 60000 // n_patches
-    data_assignment: List[int] = list(range(n_patches))
-    random.shuffle(data_assignment)
-    export_dir = f'./export_pathological/mnist_{n_client}'
-    
-    if not os.path.exists(export_dir):
-        os.mkdir(export_dir)
-
-    for client_id in range(n_client):
-        patch_idx_1 = data_assignment[client_id * 2]
-        patch_idx_2 = data_assignment[client_id * 2  + 1]
-
-        stimulis_tmp = torch.cat([
-            res_stimulis_all[patch_idx_1 * patch_sz:(patch_idx_1 + 1) * patch_sz, ...],
-            res_stimulis_all[patch_idx_2 * patch_sz:(patch_idx_2 + 1) * patch_sz, ...]
-        ])
-        labels_tmp = torch.cat([
-            res_labels_all[patch_idx_1 * patch_sz:(patch_idx_1 + 1) * patch_sz, ...],
-            res_labels_all[patch_idx_2 * patch_sz:(patch_idx_2 + 1) * patch_sz, ...]
-        ]).to(torch.int64)
-
-        data = {'stimulis': stimulis_tmp, 'labels': labels_tmp}
-        with open(f'{export_dir}/client_{client_id}.pkl', 'wb') as f:
-            pickle.dump(data, f)
-```
-
-### gen_mnist_realworld.py
-
-```python
-"""gen_realworld_pathological.py
-"""
-import torch
-import pickle
-import sys, os
-from helpers import sort_mnist, break_into
-
-if __name__ == '__main__':
-    n_client: int = int(sys.argv[1]) if len(sys.argv) > 0 else 10
-
-    res_stimulis_all, res_labels_all = sort_mnist()
-    n_patches = 5 * n_client
-    patch_sz = 60000 // n_patches
-    data_assignment = break_into(n_patches, n_client)
-    export_dir = f'./export_realworld/mnist_{n_client}'
-
-    if not os.path.exists(export_dir):
-        os.mkdir(export_dir)
-        
-    for client_id in range(n_client):
-        stimulis_tmp = torch.cat([
-            res_stimulis_all[patch_idx * patch_sz:(patch_idx + 1) * patch_sz, ...] for patch_idx in data_assignment[client_id]
-        ])
-        labels_tmp = torch.cat([
-            res_labels_all[patch_idx * patch_sz:(patch_idx + 1) * patch_sz, ...] for patch_idx in data_assignment[client_id]
-        ]).to(torch.int64)
-        data = {'stimulis': stimulis_tmp, 'labels': labels_tmp}
-        with open(f'{export_dir}/client_{client_id}.pkl', 'wb') as f:
-            pickle.dump(data, f)
-```
-
-### Explanation
-
-The MNIST is converted to serialized pkl objects. They are stored at `./export_{dataset_type}/mnist_{n_client}/client_{id}.pkl` Each dataset file can be deserialized to a python dictionary:
-
-```json
-{
-    "stimulis": torch.Tensor(size=(n,1,28,28), dtype=float32),
-    "labels":torch.Tensor(size=(n,1), dtype=int64)
-}
-```
-
-To read this dataset, an `MNIST_NonIID` class is created.
-
-```python
-"""mnist_noniid_dataset.py
-"""
-import torch
-from torch.utils.data import Dataset
-import pickle
-from typing import Any
-
-class MNISTNonIID(Dataset):
-    stimulis: torch.Tensor = None
-    labels: torch.Tensor = None
-    length: int = 0
-    def __init__(self, path_to_pkl: str) -> None:
-        super().__init__()
-        with open(path_to_pkl, 'rb') as f:
-            data = pickle.load(f)
-
-        self.stimulis = data['stimulis']
-        self.labels = data['labels']
-        self.length = len(self.stimulis)
-    def __len__(self):
-        return self.length
-    
-    def __getitem__(self, index) -> Any:
-        return self.stimulis[index,...], self.labels[index]
 ```
 
 ## Impact of number of clients on accuracy
@@ -540,8 +428,6 @@ To run this notebook, `ipykernel` and `jupyter` must be installed. Plus, to visu
 We also need to come up with a method so that multiple client can communicate with server.
 Our solution is **shared memory**.
 
-### Idea - Multi process FedAvg
-
 We first define some signals
 
 | Singals | Signification |
@@ -557,7 +443,9 @@ We first define some signals
 |`SIG_C_ERROR`|(Unused)|
 |`SIG_C_CLOSE`|The client say goodbye to server|
 
-### Server logics
+> See `fedpara/config.py` for details.
+
+### Server design
 
 - We Use `mmap` shared memory to share parameters / variables
 - Each client has an unique id
@@ -567,7 +455,7 @@ We first define some signals
 - Server set signal to `SIG_S_BUSY`. Then, Server pull client paramters via `/tmp/fedavg_client_{id}_params.mmap` and client info (length of dataset) via `/tmp/fedavg_client_{id}_info.mmap`
 - Server calculates the averaged parameters and publish this paramter to shared memory. Then, Server publishes signal `SIG_S_READY` to all clients.
 
-### Client logics
+### Client design
 
 - Client watch for signal from Server. When it turns to `SIG_S_READY`, Client will pull parameters from server via `/tmp/fedavg_server_params.mmap`
 - Client set signal to `SIG_C_BUSY`
@@ -578,7 +466,7 @@ We first define some signals
 
 ### Abstraction of shared memory
 
-To better accomplish our task, we created ConnABC abstraction of shared memory
+To better accomplish our task, we created `ConnABC` which abstraction of shared memory communication.
 
 ```python
 class ConnABC(object):
@@ -673,7 +561,11 @@ class ConnABC(object):
 
 That's it. Simply, `ConnABC(path, size)` will create a piece of shard memory mapped to path. `ConnABC` does not require any libraries other than python standard libraies.
 
+> See `fedpara/conn.py` for details.
+
 ### Server Class
+
+The Sever class is defined in `fedpara/server.py`
 
 ```python
 class ServerABC(object):
@@ -754,7 +646,7 @@ class ServerABC(object):
         """Actually publish net parameters
         The parameters are from self.net
         """
-        self.shared_params.set(self.net.state_dict())
+        self.shared_params.set(bundle_parameter(self.net))
 
     def register_client(self, id: int) -> bool:
         """Register client to server.
@@ -765,20 +657,7 @@ class ServerABC(object):
         Returns:
             bool: status code
         """
-
-        # Avoid duplicate clients
-        if id in self.client_ids:
-            print("[ Error ] Client already registered")
-            return False
-
-        # Complete client registration
-        self.client_ids.append(id)
-        self.client_params[id] = ConnABC(self.get_client_params_path(id), self.params_size)
-        self.client_signal[id] = ConnABC(self.get_client_signal_path(id), 1)
-        self.client_info[id] = ConnABC(self.get_client_info_path(id), len(pickle.dumps(torch.tensor(0, dtype=torch.int64))))
-        self.client_signal[id].set(bytearray([self.status]), encode=False)
-        self.client_info[id].set(torch.tensor(0, dtype=torch.int64))
-        return True
+        ...
     
     def unregister_client(self, id: int) -> bool:
         """Unregister client from server.
@@ -789,23 +668,7 @@ class ServerABC(object):
         Returns:
             bool: status code
         """
-        if id not in self.client_ids:
-            print("[ Error ] Client not registered")
-            return False
-        
-        self.client_ids.remove(id)
-        if not self.client_params[id].closed:
-            self.client_params[id].close()
-        
-        if not self.client_signal[id].closed:
-            self.client_signal[id].close()
-
-        if not self.client_info[id].closed:
-            self.client_info[id].close()
-
-        self.client_params.pop(id)
-        self.client_signal.pop(id)
-        self.client_info.pop(id)
+        ...
 
     def publish_signal(self, signal: int=None):
         """Publish a signal, to ALL clients
@@ -813,12 +676,7 @@ class ServerABC(object):
         Args:
             signal ([int], optional): Signal. Defaults to None.
         """
-        # Use self.status if signal is None
-        if signal is not None:
-            self.status = signal
-        for client_id in self.client_ids:
-            # Signals are raw bytes, do not encode
-            self.client_signal[client_id].set(bytearray([self.status]), encode=False)
+        ...
     
     def send_signal(self, id: int, signal: int):
         """Send a signal to client[id]
@@ -827,8 +685,7 @@ class ServerABC(object):
             id (int): Unique id of client
             signal (int): The signal
         """
-        # Signals are raw bytes, do not encode
-        self.client_signal[id].set(bytearray([signal]), encode=False)
+        ...
 
     def wait_clients(self, timeout=1e3) -> List[int]:
         """Wait for clients to complete trainning
@@ -839,31 +696,11 @@ class ServerABC(object):
         Returns:
             List[int]: List of accomplished clients
         """
-        start_time = time.time()
-        ready_clients: List[int] = []
-        while time.time() < start_time + timeout:
-            if len(ready_clients) == len(self.client_ids):
-                break
-            for client_id in self.client_ids:
-                signal = self.client_signal[client_id].get(decode=False)[0]
-                if signal == SIG_C_READY:
-                    if client_id not in ready_clients:
-                        ready_clients.append(client_id)
-                        start_time = time.time()
-            time.sleep(1e-1)
-        return ready_clients
-    
+        ...
     def close(self) -> None:
         """Close server and release resources
         """
-        if not self.shared_params.closed:
-            self.shared_params.close()
-
-        for client_id in self.client_ids:
-            if not self.client_params[client_id].closed:
-                self.client_params[client_id].close()
-            if not self.client_signal[client_id].closed:
-                self.client_signal[client_id].close()
+        ...
 
     def optimize(self, ready_clients: List[int] = None) -> None:
         """Optimize self.net using parameters collected
@@ -871,41 +708,7 @@ class ServerABC(object):
         Args:
             clients (List[int], optional): Finished clients. Defaults to None.
         """
-        # Use data from all clients
-        if ready_clients is None:
-            ready_clients = self.client_ids
-
-        # Gather client.info (client.dataset_len) and calculate total number of samples and gain for each client
-        tot_samples: int = 0
-        client_gain: Dict[int, float] = dict()
-        for client_id in ready_clients:
-            curr_info = self.get_client_info(client_id)
-            tot_samples += curr_info
-            client_gain[client_id] = curr_info
-        print(f'[ Info ] Total number of samples: {tot_samples}')
-        for key in client_gain.keys():
-            client_gain[key] /= tot_samples
-
-        # Prepare an OrderedDict for result
-        new_params = OrderedDict()
-        target_names: List[str] = []
-        for name, _ in list(self.net._named_members(lambda module: module._parameters.items())):
-            new_params[name] = 0
-            target_names.append(name)
-
-        # Gather all model parameters
-        for client_id in ready_clients:
-            curr_param = self.get_client_params(client_id)
-            for name in new_params.keys():
-                new_params[name] += curr_param[name] * client_gain[client_id]
-        
-        # Check if the state dict is valid
-        if verify_state_dict(target_names, new_params):
-            self.net.load_state_dict(new_params)
-            print('[ Debug ] New params loaded')
-        
-        # Publish the net
-        self.publish_net()
+        ...
 
     def serve(self, n_epochs: int) -> bool:
         """Server start serving, for n epochs
@@ -916,34 +719,15 @@ class ServerABC(object):
         Returns:
             (bool): status code
         """
-        if self.net is not None:
-            self.publish_signal(SIG_S_READY)
-        else:
-            self.publish_signal(SIG_INIT)
-            return False
+        ...
 
-        for epoch_idx in range(1, n_epochs + 1):
-            print(f'[ Info ] Loop {epoch_idx}')
-            # Print signature of model parameters for verification
-            print(f'[ Debug ] Model parameter signature: {md5(self.shared_params.get(decode=False)).hexdigest()}') 
-            # print(f'[ Debug ] Parameters: {self.net.state_dict()}')
-            print(f'[ Info ] Clients: {self.client_ids}')
-            ready_clients: List[int] = self.wait_clients()
-            if len(ready_clients) == 0:
-                self.publish_signal(SIG_S_CLOSE)
-                time.sleep(1)
-                return False
-            
-            self.publish_signal(SIG_S_BUSY)
-            self.optimize(ready_clients=ready_clients)
-            if epoch_idx < n_epochs:
-                self.publish_signal(SIG_S_READY)
-            else:
-                self.publish_signal(SIG_S_CLOSE)
-        return True
 ```
 
+> See `fedpara/server.py` for details.
+
 ### Client Class
+
+The Client class is defined in `fedpara/client.py`
 
 ```python
 class ClientABC(object):
@@ -1018,8 +802,11 @@ class ClientABC(object):
 
         Returns:
             bool: Status code
+        
+        Warning:
+            Use bundle_parameter and copy tensors to CPU
         """
-        self.client_params.set(model.state_dict())
+        self.client_params.set(bundle_parameter(model))
         return True
     
     def set_info(self, info: int) -> bool:
@@ -1036,23 +823,11 @@ class ClientABC(object):
         return True
 
     def open(self) -> None:
-        self.client_params = ConnABC(self.client_params_path, 0)
-        self.signal = ConnABC(self.signal_path, 0)
-        self.server_params = ConnABC(self.server_params_path, 0)
-        self.client_info = ConnABC(self.client_info_path, 0)
+        ...
 
     def close(self) -> None:
-        if not self.client_params.closed:
-            self.client_params.close()
-        if not self.signal.closed:
-            self.signal.close()
-        if not self.server_params.closed:
-            self.server_params.close()
-        if not self.client_info.closed:
-            self.client_info.close()
-        
-        self.closed = True
-    
+        ...
+
     def wait_server(self) -> int:
         """Endless loop that checks signal from server
 
@@ -1068,9 +843,15 @@ class ClientABC(object):
             time.sleep(1e-1)
 ```
 
-### server_para.py
+> See `fedpara/client.py` for details.
 
-We introduced `tqdm` library to better display model evaluation process.
+### Experiment scripts
+
+We also created several other scripts.
+
+#### server_para.py
+
+This script is created to run the parmeter server. We introduced `tqdm` library to better display model evaluation process.
 
 ```python
 """server_para.py
@@ -1154,6 +935,8 @@ if __name__ == '__main__':
 ```
 
 ### client_para.py
+
+This script will initialize a client, connect client to server and start parallel trainning. The client can be shutdown from server side.
 
 ```python
 """client_para.py
@@ -1320,4 +1103,3 @@ As shown in the figure, the clients can fetch server parameters in parallel.
 The experimental results are shown in the figure below. Due to computational cost, we did not test client=100 and clients=1000
 
 ![Parallel Training Results](./img/para_data.png)
-
