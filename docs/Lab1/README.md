@@ -482,6 +482,8 @@ For example:
 (guest) $ iperf3 -c 192.168.1.207 -i 1 -P 30 -t 10 -p 1314
 ```
 
+> By default, qemu guest will be assigned with IP address `10.0.2.15` and host will be assigned with `10.0.2.2`
+
 ### iperf result
 
 #### virtio

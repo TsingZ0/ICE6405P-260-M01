@@ -157,7 +157,7 @@ Now we can manipulate OpenWhisk with `wsk` command.
 We create a `hello.js` file to test if our OpenWhisk installation is operational
 
 ```bash
-$ echo " function main(params) {var name = params.name || 'World'; return {payload:  'Hello, ' + name + '\!'};}" > hello.js
+$ echo "function main(params) {var name = params.name || 'World'; return {payload:  'Hello, ' + name + '\!'};}" > hello.js
 ```
 
 We then create an OpenWhisk Action that binds to this script:
@@ -170,9 +170,9 @@ ok: created action helloworld
 To invoke this action, simply run:
 
 ```bash
-$ wsk action invoke helloworld --result
+$  wsk action invoke helloworld --result --param name david
 {
-    "playload": "Hello, World!"
+    "playload": "Hello, david!"
 }
 ```
 
@@ -319,7 +319,7 @@ With the help of `torch.onnx.export`, we convert our trained model to ONNX forma
 
 With the help of [Flask](https://flask.net.cn), the ML model can be wrapped as a WebApp.
 
-> See `deploy-flash.py` for details
+> See `deploy-flask.py` for details
 
 The WebApp we designed can be accessed by HTTP GET/POST actions. For example:
 
