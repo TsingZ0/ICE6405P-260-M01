@@ -32,7 +32,7 @@ def train(args: argparse.Namespace, client: ClientABC) -> None:
     global net, dataset, optimizer, criterion, train_loader
     net.train()
     device = torch.device(args.device)
-    for epoch_idx in range(1, args.n_epoch + 1):
+    for epoch_idx in range(1, args.n_epochs + 1):
         with tqdm.tqdm(range(len(train_loader))) as pbar:
             for stimuli, label in train_loader:
                 optimizer.zero_grad()
@@ -115,7 +115,7 @@ if __name__ == '__main__':
     args: argparse.Namespace = parser.parse_args()
     # args have
     # - id: unique id of client, start from 0
-    # - n_epoch: local epoc
+    # - n_epochs: local epoc
     # - dataset_type
     # - world_sz: int total number of clients
     # - lr
