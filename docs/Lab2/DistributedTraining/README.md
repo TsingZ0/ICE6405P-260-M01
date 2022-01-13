@@ -179,8 +179,17 @@ $ tar -zcvf dataset_dl_6.tar.gz ./dataset_dl # Subset(50000,60000)
 We upload these datasets to OSS with the help of previously created`file_uploader.py`, or via web interface of MinIO.
 
 ```bash
-$ python file_uploader.py --endpoint=192.168.1.131:9000 --access_key=testAccessKey --secret_key=testSecretKey --bucket_name=mnist-dataset --file=dataset_dl_1.tar.gz
-{'bucket_name': 'mnist-dataset', 'object_name': 'd96e3d6c-1ddf-11ec-9aeb-c3cd4bc871fd.gz', 'url': 'http://192.168.1.131:9000/mnist-dataset/d96e3d6c-1ddf-11ec-9aeb-c3cd4bc871fd.gz?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=testAccessKey%2F20210925%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20210925T090622Z&X-Amz-Expires=172800&X-Amz-SignedHeaders=host&X-Amz-Signature=e44304c335bbd5ef00c8726eef207d8b3448956e35b072d60a5f4d4af08b0987'}
+$ python file_uploader.py \
+         --endpoint=192.168.1.131:9000 \
+         --access_key=testAccessKey \
+         --secret_key=testSecretKey \
+         --bucket_name=mnist-dataset \
+         --file=dataset_dl_1.tar.gz
+{
+  'bucket_name': 'mnist-dataset', 
+  'object_name': 'd96e3d6c-1ddf-11ec-9aeb-c3cd4bc871fd.gz', 
+  'url': 'http://192.168.1.131:9000/mnist-dataset/d96e3d6c-1ddf-11ec-9aeb-c3cd4bc871fd.gz...'
+}
 
 ```
 
@@ -228,7 +237,12 @@ SERVER_HOST=http://172.17.0.1:29500
 DATASET_URL=http://172.17.0.1:9000/mnist-dataset/dataset_dl_1.tar.gz
 WORKER_HOST=http://localhost:8080
 curl -X POST \
-     -d '{"value":{"batch_sz_train": 32, "epoch_n": 32, "apihost": "'$SERVER_HOST'","update_intv": 8, "dataset_url": "'$DATASET_URL'","device": "cpu"}}' \
+     -d '{"value":{"batch_sz_train": 32, 
+     "epoch_n": 32, 
+     "apihost": "'$SERVER_HOST'",
+     "update_intv": 8, 
+     "dataset_url": "'$DATASET_URL'",
+     "device": "cpu"}}' \
      -H 'Content-Type: application/json' $WORKER_HOST/run
 ```
 
@@ -265,7 +279,9 @@ $ docker push natrium233/python3action-dist-train-mnist:1.0
 Create OpenWhisk action
 
 ```bash
-$ wsk action create dist-train --docker natrium233/python3action-dist-train-mnist:1.0 --web true --timeout 300000
+$ wsk action create dist-train --docker natrium233/python3action-dist-train-mnist:1.0 \
+                               --web true \
+                               --timeout 300000
 ```
 
 > This command assumes that openwhisk is configured with api-gateway, otherwise you should remove the `--web true` flag
@@ -297,24 +313,27 @@ When setting local batch size to 32, the memory consumption is 166MiB, which doe
 
 ```bash
 $ docker stats
-CONTAINER ID   NAME                      CPU %     MEM USAGE / LIMIT     MEM %     NET I/O           BLOCK I/O        PIDS
-5ceb5ca66318   wsk0_13_guest_disttrain   57.77%    165.8MiB / 256MiB     64.76%    33.7MB / 35.4MB   5.93MB / 55MB    4
-560ba865b754   wsk0_9_prewarm_nodejs14   0.00%     10.16MiB / 256MiB     3.97%     4.08kB / 0B       115kB / 0B       8
+CONTAINER ID   NAME                      CPU %     MEM USAGE / LIMIT     MEM %     NET I/O        
+5ceb5ca66318   wsk0_13_guest_disttrain   57.77%    165.8MiB / 256MiB     64.76%    33.7MB / 35.4MB
+560ba865b754   wsk0_9_prewarm_nodejs14   0.00%     10.16MiB / 256MiB     3.97%     4.08kB / 0B    
 ```
 
 When invoking two actions at same time, multiple containers will be created:
 
 ```bash
-CONTAINER ID   NAME                       CPU %     MEM USAGE / LIMIT     MEM %     NET I/O           BLOCK I/O        PIDS
-c35b1fee108c   wsk0_14_guest_disttrain    33.04%    166.5MiB / 256MiB     65.04%    30.6MB / 13.8MB   2.97MB / 55MB    4
-9cb88380585d   wsk0_15_guest_disttrain    33.64%    167.1MiB / 256MiB     65.28%    30.5MB / 13.6MB   3.6MB / 55MB     4
-15e384116b43   wsk0_16_prewarm_nodejs14   0.00%     10.39MiB / 256MiB     4.06%     3.28kB / 0B       401kB / 0B       8
+CONTAINER ID   NAME                       CPU %     MEM USAGE / LIMIT     MEM %     NET I/O        
+c35b1fee108c   wsk0_14_guest_disttrain    33.04%    166.5MiB / 256MiB     65.04%    30.6MB / 13.8MB
+9cb88380585d   wsk0_15_guest_disttrain    33.64%    167.1MiB / 256MiB     65.28%    30.5MB / 13.6MB
+15e384116b43   wsk0_16_prewarm_nodejs14   0.00%     10.39MiB / 256MiB     4.06%     3.28kB / 0B    
 ```
 
 When creating action, you can use `--memory` to limit the maximum memory a function can use, this value is `256MB` by default
 
 ```bash
-wsk action create dist-train --docker natrium233/python3action-dist-train-mnist:1.0 --web true --timeout 300000 --memory 512
+wsk action create dist-train --docker natrium233/python3action-dist-train-mnist:1.0 \
+                             --web true \
+                             --timeout 300000 \
+                             --memory 512
 ```
 
 ## Summary

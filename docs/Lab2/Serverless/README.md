@@ -147,7 +147,8 @@ $ java -jar ./bin/openwhisk-standalone.jar
 Credential of our OpenWhisk instance is printed to `stdout` (as highlighted in the picture above). Use this credential to setup `wsk` cli.
 
 ```bash
-$ wsk property set --apihost 'http://172.17.0.1:3233' --auth '23bc46b1-71f6-4ed5-8c54-816aa4f8c502:123zO3xZCLrMN6v2BKK1dXYFpXlPkccOFqm12CdAsMgRU4VrNZ9lyGVCGuMDGIwP'
+$ wsk property set --apihost 'http://172.17.0.1:3233' \
+                   --auth ...
 ```
 
 Now we can manipulate OpenWhisk with `wsk` command.
@@ -157,7 +158,9 @@ Now we can manipulate OpenWhisk with `wsk` command.
 We create a `hello.js` file to test if our OpenWhisk installation is operational
 
 ```bash
-$ echo "function main(params) {var name = params.name || 'World'; return {payload:  'Hello, ' + name + '\!'};}" > hello.js
+$ echo "function main(params){" \
+        "var name = params.name || 'World';" \
+        "return {payload:  'Hello, ' + name + '\!'};}" > hello.js
 ```
 
 We then create an OpenWhisk Action that binds to this script:
@@ -276,7 +279,11 @@ def oss_upload(endpoint: str,
 if __name__ == '__main__':
     """Usage
 
-    python file_upload.py --endpoint=192.168.1.82:9000 --access_key=testAccessKey --secret_key=testSecretKey --bucket=mnist --file=mnist.png
+    python file_upload.py --endpoint=192.168.1.82:9000 \
+                          --access_key=testAccessKey \
+                          --secret_key=testSecretKey \
+                          --bucket=mnist \
+                          --file=mnist.png
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('--endpoint', type=str)
@@ -301,7 +308,7 @@ It returns the name of bucket and the name of file as a dictionary, together wit
 {
     "bucket_name": "mnist",
     "object_name":"082d97b2-19f1-11ec-a558-1e00d10c4441.png",
-    "url":"http://192.168.1.82:9000/mnist/082d97b2-19f1-11ec-a558-1e00d10c4441.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=testAccessKey%2F20210921%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20210921T165246Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=00acbe0487c7dab233d75ec64b3385fccb26dd7c6c8a83858490bdc1e002280e"
+    "url":"http://192.168.1.82:9000/mnist/082d97b2-19f1-11ec-a558-1e00d10c4441.png?..."
 }
 ```
 
@@ -324,7 +331,8 @@ With the help of [Flask](https://flask.net.cn), the ML model can be wrapped as a
 The WebApp we designed can be accessed by HTTP GET/POST actions. For example:
 
 ```console
-$ curl -X POST -d '{"value":{"url":"http://192.168.1.82:9000/mnist/test_picture.png"}}' -H 'Content-Type: application/json' http://localhost:8080/run
+$ curl -X POST -d '{"value":{"url":"http://192.168.1.82:9000/mnist/test_picture.png"}}' \
+       -H 'Content-Type: application/json' http://localhost:8080/run
 {"code":200,"res":6}
 ```
 
@@ -433,7 +441,8 @@ OK
 ```
 
 ```bash
-$ curl -X POST -d '{"value":{"url": "http://192.168.1.82:9000/mnist/test_picture.png"}}' -H 'Content-Type: application/json' http://localhost:8080/run
+$ curl -X POST -d '{"value":{"url": "http://192.168.1.82:9000/mnist/test_picture.png"}}' \
+       -H 'Content-Type: application/json' http://localhost:8080/run
 {"code":200,"res":6}
 ```
 
@@ -495,7 +504,9 @@ http://172.17.0.1:3234/api/23bc46b1-71f6-4ed5-8c54-816aa4f8c502/ml/mnist
 Test this api with curl
 
 ```bash
-$ curl -X POST -d '{"url":"http://192.168.1.82:9000/mnist/test_picture.png"}' -H 'Content-Type: application/json' http://localhost:3234/api/23bc46b1-71f6-4ed5-8c54-816aa4f8c502/ml/mnist
+$ curl -X POST -d '{"url":"http://192.168.1.82:9000/mnist/test_picture.png"}' \
+       -H 'Content-Type: application/json' \
+       http://localhost:3234/api/23bc46b1-71f6-4ed5-8c54-816aa4f8c502/ml/mnist
 {
   "code": 200,
   "res": 6
@@ -546,7 +557,11 @@ def invoke_openwsk_action_mnist(wsk_apihost: str, image_url: str):
 if __name__ == '__main__':
     """Usage
 
-    python file_upload.py --endpoint=192.168.1.82:9000 --access_key=testAccessKey --secret_key=testSecretKey --bucket=mnist --file=mnist.png
+    python file_upload.py --endpoint=192.168.1.82:9000 \
+                          --access_key=testAccessKey \
+                          --secret_key=testSecretKey \
+                          --bucket=mnist \
+                          --file=mnist.png
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('--endpoint', type=str)

@@ -55,8 +55,10 @@ def sort_mnist() -> Tuple[torch.Tensor, torch.Tensor]:
             res_index[label] += 1
             pbar.update()
 
-    res_stimulis_all: torch.Tensor = torch.cat([res_stimulis[idx, 0:res_index[idx],...] for idx in range(10)])
-    res_labels_all: torch.Tensor = torch.cat([res_labels[idx, 0:res_index[idx],...] for idx in range(10)]).to(torch.int64)
+    res_stimulis_all = torch.cat([res_stimulis[idx, 0:res_index[idx],...] \
+                                  for idx in range(10)])
+    res_labels_all= torch.cat([res_labels[idx, 0:res_index[idx],...] \
+                               for idx in range(10)]).to(torch.int64)
 
     return res_stimulis_all, res_labels_all
 
@@ -182,7 +184,13 @@ The `ClientSim` class is an abstraction of client. It is benifited from many pyt
 
 ```python
 class ClientSim(object):
-    def __init__(self, id: int, backend: ClientSimBackend, n_epochs: int, batch_sz: int, lr: float, criterion: nn.Module,
+    def __init__(self, 
+                 id: int, 
+                 backend: ClientSimBackend, 
+                 n_epochs: int, 
+                 batch_sz: int, 
+                 lr: float, 
+                 criterion: nn.Module,
                  optim: torch.optim.Optimizer) -> None:
         super().__init__()
         self.id: int = id
@@ -228,7 +236,10 @@ def main(args: argparse.Namespace):
     # Parse devicese.g. --c_device=cuda:0,cuda:1 -> ['cuda:0','cuda:1']
     c_devices = [torch.device(dev_str) for dev_str in args.c_device.split(',')]
     # Creating client backends. They are executer of clients
-    client_backends = [ClientSimBackend(id=idx, net=server.net, device=c_devices[idx]) for idx in range(len(c_devices))]
+    client_backends = [ClientSimBackend(id=idx, 
+                                        net=server.net, 
+                                        device=c_devices[idx])
+                       for idx in range(len(c_devices))]
     # Creating clients. Each client is assigned to a backend
     clients = [
         ClientSim(id=idx,
@@ -241,7 +252,8 @@ def main(args: argparse.Namespace):
     ]
         # Initialize dataset classes
     client_datasets = [
-        MNISTNonIID(f'./export_{args.dataset_type}/mnist_{args.world_sz}/client_{idx}.pkl', device=clients[idx].device) for idx in range(args.world_sz)
+        MNISTNonIID(f'./export_{args.dataset_type}/mnist_{args.world_sz}/client_{idx}.pkl', 
+                    device=clients[idx].device) for idx in range(args.world_sz)
     ]
 
 ```
@@ -331,7 +343,9 @@ class ClientSimBackend(object):
                     loss.backward()
                     optimizer.step()
                     optimizer.zero_grad()
-                    pbar.set_description(f'id: {self.id}, epoch: {epoch_idx}, loss: {str(loss.detach().cpu().numpy())[:6]}')
+                    pbar.set_description(f'id: {self.id}, \
+                                           epoch: {epoch_idx}, \
+                                           loss: {str(loss.detach().cpu().numpy())[:6]}')
                     pbar.update()
 
         del trainloader
@@ -497,9 +511,12 @@ To better accomplish our task, we created `ConnABC` which abstraction of shared 
 class ConnABC(object):
     def __init__(self, path: str, size: int=0, mult:int=2) -> None:
         super().__init__()
-        self.mult: int = mult # Multiplier of size. RealSize = Size * Multiplier
-        self.path: str = path # Mapped path of shared memory
-        self.size: int = size # Size of memory. When size==0, the connection will be set upon an existing file
+         # Multiplier of size. RealSize = Size * Multiplier
+        self.mult: int = mult
+        # Mapped path of shared memory
+        self.path: str = path
+        # Size of memory. size==0 for an existing file
+        self.size: int = size 
         self.closed: bool = True
         self.open()
 
@@ -511,9 +528,11 @@ class ConnABC(object):
 
     def _create_mmap(self) -> None:
         """Create mmap
-        The server is responsible of creating mmap files. It must decide the size of share memory
+        The server is responsible of creating mmap files. 
+        It must decide the size of share memory
 
-        The client, on the other hand, open a mmap file directly. So size==0 on the client size, and the client should not create new file on disk
+        The client, on the other hand, open a mmap file directly. 
+        So size==0 on the client size, and the client should not create new file on disk
         """
 
         # Creating an empty file on disk
@@ -843,7 +862,8 @@ class ClientABC(object):
         Returns:
             bool: Status code
         """
-        # Warning: pickle does not dump int to a fixed length bytearray, therefore, the length must be converted to torch.tensor
+        # Warning: pickle does not dump int to a fixed length bytearray, 
+        # therefore, the length must be converted to torch.tensor
         self.client_info.set(torch.tensor(info, dtype=torch.int64))
         return True
 
@@ -892,6 +912,8 @@ torch.random.manual_seed(0)
 from fedavg_config import *
 from helpers import ServerABC
 from models import ModelABC
+from torch.utils.data import DataLoader
+from torchvision.datasets import MNIST
 
 def run(args: argparse.Namespace) -> None:
     # Init server
@@ -923,16 +945,16 @@ def test(net: nn.Module, device: torch.device = torch.device('cpu')) -> None:
     net.to(device)
     net.eval()
 
-    test_loader = torch.utils.data.DataLoader(torchvision.datasets.MNIST('./data/',
-                                                                         train=False,
-                                                                         download=True,
-                                                                         transform=torchvision.transforms.Compose([
-                                                                             torchvision.transforms.ToTensor(),
-                                                                             torchvision.transforms.Normalize((0.1307, ),
-                                                                                                              (0.3081, ))
-                                                                         ])),
-                                              batch_size=BATCH_SZ_TEST,
-                                              shuffle=True)
+    test_loader = DataLoader(MNIST('./data/',
+                                   train=False,
+                                   download=True,
+                                   transform=torchvision.transforms.Compose([
+                                       torchvision.transforms.ToTensor(),
+                                       torchvision.transforms.Normalize((0.1307, ),
+                                                                        (0.3081, ))
+                                   ])),
+                             batch_size=BATCH_SZ_TEST,
+                             shuffle=True)
 
     acc_cnt: int = 0
     tot_cnt: int = 1e-5
@@ -1006,7 +1028,9 @@ def train(args: argparse.Namespace, client: ClientABC) -> None:
                 loss = criterion(pred, label.to(device))
                 loss.backward()
                 optimizer.step()
-                pbar.set_description(f'[ Info ][id:{client.id}] loop={epoch_idx}, loss={loss.detach().cpu().numpy()}')
+                pbar.set_description(f'[ Info ][id:{client.id}] \
+                                     loop={epoch_idx}, \
+                                     loss={loss.detach().cpu().numpy()}')
                 pbar.update()
 
     client.set_info(len(dataset))
@@ -1044,7 +1068,8 @@ def run(args: argparse.Namespace) -> None:
 
     while True:
         params = client.get_params()
-        print(f'[ Debug ][id:{client.id}] Server parameter signature: {md5(client.server_params.get(decode=False)).hexdigest()}')
+        print(f'[ Debug ][id:{client.id}] Server parameter signature: \
+               {md5(client.server_params.get(decode=False)).hexdigest()}')
         net.load_state_dict(params)
 
         client.set_signal(SIG_C_BUSY)
@@ -1088,7 +1113,7 @@ A set of helper functions are created
 ```python
 def bundle_parameter(net: nn.Module) -> Dict[str, torch.Tensor]:
     parameter_dict = {}
-    module_parameters: List[str, nn.parameter.Parameter] = list(net._named_members(lambda module: module._parameters.items()))
+    module_parameters = list(net._named_members(lambda module: module._parameters.items()))
     for name, param in module_parameters:
         parameter_dict[name] = param.clone().detach().cpu()
     return parameter_dict

@@ -27,7 +27,6 @@
   - [Live Migration](#live-migration)
   - [Appendix - convenient setup script](#appendix---convenient-setup-script)
 
-
 ## Preface
 
 The experiment is carried out on a host with Ubuntu 20.04 LTS (x86_64), i7-9700K, 32GB RAM, bare metal.
@@ -45,6 +44,7 @@ $ lsmod | grep kvm
 kvm_intel             294912  0
 kvm                   819200  1 kvm_intel
 ```
+
 > If their is no KVM device, you should consider enable hardware virtualization support in BIOS/UEFI Firmware
 
 ### Install Qemu dependencies
@@ -96,7 +96,7 @@ To run centos8, we need to create a image using `qemu-img` command.
 ```bash
 $ cd $WORKING_DIR
 $ qemu-img create -f qcow2 centos_disk_0 10G 
-Formatting 'centos_disk_0.img', fmt=qcow2 cluster_size=65536 extended_l2=off compression_type=zlib size=10737418240 lazy_refcounts=off refcount_bits=16
+Formatting 'centos_disk_0.img', fmt=qcow2 cluster_size=65536 ...
 ```
 
 > `$WORKING_DIR` the place to store VM disk image
@@ -413,7 +413,9 @@ $ ovs-vsctl del-port vhost-user-0
 $ ovs-vsctl del-br br0
 
 $ ovs-vsctl add-br br0 -- set bridge br0 datapath_type=netdev
-$ ovs-vsctl add-port br0 vhost-user-0 -- set Interface vhost-user-0 type=dpdkvhostuserclient options:vhost-server-path="/tmp/sock0"
+$ ovs-vsctl add-port br0 vhost-user-0 -- set Interface vhost-user-0 \
+            type=dpdkvhostuserclient \
+            options:vhost-server-path="/tmp/sock0"
 ```
 
 > `vhost-user-0` is the port for VM
@@ -642,8 +644,11 @@ $ sudo -E $(which qemu-system-x86_64) \
 Second, we create ovs port for VM2 with `ovs-vsctl`
 
 ```bash
-$ ovs-vsctl add-port br0 vhost-user-1 -- set Interface vhost-user-1 type=dpdkvhostuserclient options:vhost-server-path="/tmp/sock1"
+$ ovs-vsctl add-port br0 vhost-user-1 -- set Interface vhost-user-1 \
+            type=dpdkvhostuserclient \
+            options:vhost-server-path="/tmp/sock1"
 ```
+
 ```bash
 $ sudo ovs-vsctl show
 21306a7e-21cb-46d8-9e7c-d00575428e6c
