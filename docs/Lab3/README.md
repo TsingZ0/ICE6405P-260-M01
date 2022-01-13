@@ -27,7 +27,7 @@
 
 In this project we realize a FedAvg algorithm
 
-![Communication-Efficient Learning of Deep Networks from Decentralized Data - Algorithm 1](./img/FedAvg.png)
+![Communication-Efficient Learning of Deep Networks from Decentralized Data - Algorithm-w600](./img/FedAvg.png)
 
 ## Non-IID dataset generation
 
