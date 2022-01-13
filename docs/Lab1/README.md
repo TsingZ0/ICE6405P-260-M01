@@ -27,7 +27,6 @@
   - [Live Migration](#live-migration)
   - [Appendix - convenient setup script](#appendix---convenient-setup-script)
 
-
 ## Preface
 
 The experiment is carried out on a host with Ubuntu 20.04 LTS (x86_64), i7-9700K, 32GB RAM, bare metal.
@@ -45,6 +44,7 @@ $ lsmod | grep kvm
 kvm_intel             294912  0
 kvm                   819200  1 kvm_intel
 ```
+
 > If their is no KVM device, you should consider enable hardware virtualization support in BIOS/UEFI Firmware
 
 ### Install Qemu dependencies
@@ -644,6 +644,7 @@ Second, we create ovs port for VM2 with `ovs-vsctl`
 ```bash
 $ ovs-vsctl add-port br0 vhost-user-1 -- set Interface vhost-user-1 type=dpdkvhostuserclient options:vhost-server-path="/tmp/sock1"
 ```
+
 ```bash
 $ sudo ovs-vsctl show
 21306a7e-21cb-46d8-9e7c-d00575428e6c
