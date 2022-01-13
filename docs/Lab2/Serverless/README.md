@@ -334,11 +334,6 @@ $ curl -X POST -d '{"value":{"url":"http://192.168.1.82:9000/mnist/test_picture.
 2. Get image from url
 3. Generate prediction
 
-| Name          | Type | Description        | Example                                      |
-| ------------- | ---- | ------------------ | -------------------------------------------- |
-| `bucket_name` | str  | Name of the bucket | `"mnist"`                                    |
-| `object_name` | str  | Name of the object | `"082d97b2-19f1-11ec-a558-1e00d10c4441.png"` |
-
 These information can be obtained from `upload()` function.
 
 If the requested object does not exist, or is not readable, the service returns `{"code":500, "res":-1}`

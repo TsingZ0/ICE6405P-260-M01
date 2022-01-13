@@ -4,7 +4,7 @@
   - [Preface](#preface)
   - [Non-IID dataset generation](#non-iid-dataset-generation)
     - [Code explanation](#code-explanation)
-  - [Singal thread Emulator](#singal-thread-emulator)
+  - [Single thread Emulator](#single-thread-emulator)
     - [Code explanation](#code-explanation-1)
       - [Client design](#client-design)
       - [Server design](#server-design)
@@ -130,7 +130,7 @@ class MNISTNonIID(Dataset):
 
 In the `__init__` method, the Dataset class load data with pickle, a popular serialization library. The dataset class is designed to be coherent with `torch.utils.data.Dataset`
 
-## Singal thread Emulator
+## Single thread Emulator
 
 Follow the paper, we can easily come up with pseudo code
 
