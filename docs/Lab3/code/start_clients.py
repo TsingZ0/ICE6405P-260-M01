@@ -8,7 +8,7 @@ import sys
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--name', type=str, default='client_para.py')
-    parser.add_argument('--n_epoch', type=int, default=1)
+    parser.add_argument('--n_epochs', type=int, default=1)
     parser.add_argument('--dataset_type', type=str, default='pathological')
     parser.add_argument('--world_sz', type=int, default=10)
     parser.add_argument('--lr', type=float, default=1e-4)
@@ -18,7 +18,7 @@ if __name__ == '__main__':
     args: argparse.Namespace = parser.parse_args()
     # args have
     # - id: unique id of client, start from 0
-    # - n_epoch: local epoc
+    # - n_epochs: local epoc
     # - dataset_type
     # - world_sz: int total number of clients
     # - lr
@@ -30,7 +30,7 @@ if __name__ == '__main__':
     process_list = []
     for id in range(args.world_sz):
         # Dispatch tasks evenlly to GPUs
-        p = subprocess.Popen(f'{sys.executable} {args.name} --id={id} --n_epoch={args.n_epoch} --lr={args.lr} --device={devices[id % len(devices)]} --batch_sz={args.batch_sz} --dataset_type={args.dataset_type} --world_sz={args.world_sz}', shell=True)
+        p = subprocess.Popen(f'{sys.executable} {args.name} --id={id} --n_epochs={args.n_epochs} --lr={args.lr} --device={devices[id % len(devices)]} --batch_sz={args.batch_sz} --dataset_type={args.dataset_type} --world_sz={args.world_sz}', shell=True)
         process_list.append(p)
         time.sleep(0.5)
         print(f'[ Info ] Launching Client {id} on device: {devices[id % len(devices)]}')

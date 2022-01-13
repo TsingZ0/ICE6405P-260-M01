@@ -97,12 +97,15 @@ def test(args: argparse.Namespace, epoch_idx: int, net: nn.Module, device: torch
 
 
 if __name__ == '__main__':
+    import os
     parser = argparse.ArgumentParser()
     parser.add_argument('--world_sz', type=int)
     parser.add_argument('--n_epochs', type=int, default=1)
     parser.add_argument('--device', type=str, default='cpu')
 
     args: argparse.Namespace = parser.parse_args()
+    if not os.path.exists('./logs'):
+        os.makedirs('./logs')
     run(args)
     # args have
     # - num_clients: int

@@ -4,6 +4,7 @@
 *tar.gz
 *.img
 *.iso
+*.pkl
 
 /docs/Lab2/DistributedTraining/code/dataset_dl/data/*
 /docs/Lab2/DistributedTraining/code/data
