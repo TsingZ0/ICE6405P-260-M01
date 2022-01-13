@@ -16,9 +16,8 @@ if __name__ == '__main__':
     data_assignment: List[int] = list(range(n_patches))
     random.shuffle(data_assignment)
     export_dir = f'./export_pathological/mnist_{n_client}'
-
     if not os.path.exists(export_dir):
-        os.mkdir(export_dir)
+        os.makedirs(export_dir)
 
     for client_id in range(n_client):
         patch_idx_1 = data_assignment[client_id * 2]
